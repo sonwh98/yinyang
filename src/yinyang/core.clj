@@ -6,7 +6,7 @@
 (declare eval2)
 
 (defmacro apply2 [s-ex env]
-  `(let [foo# (log/info {:apply2-s-ex ~s-ex})
+  `(let [;;foo# (log/info {:apply2-s-ex ~s-ex})
          s-ex# (map #(eval2 % ~env) ~s-ex)
          f# (first s-ex#)
          args# (rest s-ex#)
@@ -33,35 +33,38 @@
        (not (-> s-ex first symbol?)))))
 
 (defn eval2 [s-ex env]
-  (log/info {:eval2-s-ex s-ex})
+  (log/info {:eval2-s-ex s-ex
+             :env env})
   (cond
     (symbol? s-ex)              (env s-ex)
     (vector? s-ex)              (mapv #(eval2 % env) s-ex)
     (map? s-ex)                 (into {} (for [[k v] s-ex]
                                            [(eval2 k env)
                                             (eval2 v env)]))
-    (and (list? s-ex)
+    (and (seq? s-ex)
          (let [f (first s-ex)]
            (= f 'do)))          (let [last-ex (last s-ex)
                                       ex-but-last (drop-last s-ex)]
                                   (map #(eval2 % env) ex-but-last)
+                                  (log/info {:last-ex last-ex})
                                   (eval2 last-ex env))
-    (and (list? s-ex)
+    (and (seq? s-ex)
          (let [f (first s-ex)]
            (= f 'lambda)))      (let [params (second s-ex)
                                       body (drop 2 s-ex)
-                                      ;;body (conj body 'do)
-                                      ]
+                                      body (conj body 'do)]
                                   (log/info {:params params
                                              :body body})
                                   (fn [args]
                                     (log/info {:args args
                                                :body body})
-                                    (eval2 body (fn [y]
-                                                  (if (= params y)
-                                                    args
-                                                    (env y))))))    
-    (list? s-ex) (apply2 s-ex env)
+                                    (eval2 body (fn [binding]
+                                                  (log/info {:binding binding
+                                                             :params params})
+                                                  ;;(assoc env 'x 5)
+                                                  (assoc env binding args)
+                                                  ))))    
+    (seq? s-ex) (apply2 s-ex env)
     :else s-ex))
 
 (comment
@@ -90,19 +93,18 @@
 
   (eval2 '(lambda [x] (* x x)) {})
   (eval2 '((lambda [x]
-                   (prn {:x x})
                    (* x x)
-                   ) 2) {'x 2
-                         '* *
-                         'prn prn})
+                   ) 3) {'* *})
+
+  (into (concat '(do) '(* x x)) '())
+  (seq? (concat '(1 2 3) '(4 5 6)))
 
   (eval2 '(* x x) {'x 2
                    '* *})
-
+  
   (eval2 '((lambda [x]
-                   (prn {:x1 x})
                    (* x x)) 2)
-         {'x 2
+         {
           'prn prn})
 
   (eval2 '(prn {:x1 x}) {'x 3
@@ -117,7 +119,7 @@
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
 
-  (list? [1])
+  (seq? [1])
   
   ({'x 2} 'x)
   
