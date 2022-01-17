@@ -42,6 +42,11 @@
                                             (eval2 v env)]))
     (and (list? s-ex)
          (let [f (first s-ex)]
+           (= f 'do)))          (let [body (rest s-ex)]
+                                  (log/info "do " {:body body})
+                                  (map #(eval2 % env) body))
+    (and (list? s-ex)
+         (let [f (first s-ex)]
            (= f 'lambda)))      (let [params (second s-ex)
                                       body (drop 2 s-ex)
                                       ;;body (conj body 'do)
@@ -93,11 +98,20 @@
   (eval2 '(* x x) {'x 2
                    '* *})
 
-  (eval2 '((prn {:x1 x}) (* x x)) {'x 2
-                                   'prn prn})
+  (eval2 '((lambda [x]
+                   (prn {:x1 x})
+                   (* x x)) 2)
+         {'x 2
+          'prn prn})
 
-  (eval2 '(prn {:x1 x}) {'x 2
+  (eval2 '(prn {:x1 x}) {'x 3
                          'prn prn})
+  (eval2 '(do (* 2 x)
+              (* x x))
+         {'x 2
+          '* *})
+  (eval2 '(do 2) {})
+  
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
 
