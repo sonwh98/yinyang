@@ -60,19 +60,18 @@
            (= f 'lambda)))      (let [params (second s-ex)
                                       body (drop 2 s-ex)
                                       body (conj body 'do)]
-                                  (log/info {:params params
-                                             :body body})
-                                  (fn [args]
-                                    (log/info {:args args
-                                               :body body})
-                                    (eval2 body (fn [binding]
-                                                  (let [v (env binding)]
-                                                    (log/info {:binding binding
-                                                               :binding-v v
+                                  (fn [& args]
+                                    (eval2 body (fn [a-symbol]
+                                                  (let [v (env a-symbol)]
+                                                    (log/info {:params params
+                                                               :a-symbol a-symbol
+                                                               :a-symbol-v v
                                                                :args args})
                                                     (if v
                                                       v
-                                                      args))))))
+                                                      (let [pairs (mapv vec (partition 2 (interleave params args)))
+                                                            env2 (into {} pairs)]
+                                                        (env2 a-symbol))))))))
     (seq? s-ex) (apply2 s-ex env)
     :else s-ex))
 
@@ -101,13 +100,13 @@
   
 
   (eval2 '(lambda [x] (* x x)) {})
-  (eval2 '((lambda [x] (* x x)) 2) {'* *})
+  (eval2 '((lambda [x] (* x x)) 4) {'* *})
 
   (eval2 '((lambda [x y]
-                   (* x y)
-                   ) 2 3 ) {'* *})
+                   (* x y)) 5 3 )
+         {'* *})
 
-
+  
   (eval2 '(* x x) {'x 2
                    '* *})
   
