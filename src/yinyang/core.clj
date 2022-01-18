@@ -11,7 +11,8 @@
          f# (first s-ex#)
          args# (rest s-ex#)
          args-count# (count args#)]
-
+     (log/info {:apply2-s-ex s-ex#
+                :apply2-args args#})
      (case args-count#
        1 (f# (nth args# 0))
        2 (f# (nth args# 0)
@@ -36,17 +37,23 @@
   (log/info {:eval2-s-ex s-ex
              :env env})
   (cond
-    (symbol? s-ex)              (env s-ex)
+    (symbol? s-ex)              (let [v (env s-ex)]
+                                  (log/info {:s s-ex
+                                             :v v})
+                                  v)
     (vector? s-ex)              (mapv #(eval2 % env) s-ex)
     (map? s-ex)                 (into {} (for [[k v] s-ex]
                                            [(eval2 k env)
                                             (eval2 v env)]))
     (and (seq? s-ex)
          (let [f (first s-ex)]
-           (= f 'do)))          (let [last-ex (last s-ex)
-                                      ex-but-last (drop-last s-ex)]
+           (= f 'do)))          (let [do-body (rest s-ex)
+                                      last-ex (last do-body)
+                                      ex-but-last (drop-last do-body)]
                                   (map #(eval2 % env) ex-but-last)
-                                  (log/info {:last-ex last-ex})
+                                  (log/info {:do-body do-body
+                                             :ex-but-last ex-but-last
+                                             :last-ex last-ex})
                                   (eval2 last-ex env))
     (and (seq? s-ex)
          (let [f (first s-ex)]
@@ -59,11 +66,13 @@
                                     (log/info {:args args
                                                :body body})
                                     (eval2 body (fn [binding]
-                                                  (log/info {:binding binding
-                                                             :params params})
-                                                  ;;(assoc env 'x 5)
-                                                  (assoc env binding args)
-                                                  ))))    
+                                                  (let [v (env binding)]
+                                                    (log/info {:binding binding
+                                                               :binding-v v
+                                                               :args args})
+                                                    (if v
+                                                      v
+                                                      args))))))
     (seq? s-ex) (apply2 s-ex env)
     :else s-ex))
 
@@ -92,12 +101,12 @@
   
 
   (eval2 '(lambda [x] (* x x)) {})
-  (eval2 '((lambda [x]
-                   (* x x)
-                   ) 3) {'* *})
+  (eval2 '((lambda [x] (* x x)) 2) {'* *})
 
-  (into (concat '(do) '(* x x)) '())
-  (seq? (concat '(1 2 3) '(4 5 6)))
+  (eval2 '((lambda [x y]
+                   (* x y)
+                   ) 2 3 ) {'* *})
+
 
   (eval2 '(* x x) {'x 2
                    '* *})
