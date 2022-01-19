@@ -27,12 +27,6 @@
              (nth args# 3))
        (.applyTo f# args#))))
 
-(defn self-eval? [s-ex]
-  (or (number? s-ex)
-      (and
-       (list? s-ex)
-       (not (-> s-ex first symbol?)))))
-
 (defn eval2 [s-ex env]
   (log/info {:eval2-s-ex s-ex
              :env env})
@@ -87,9 +81,6 @@
                                                                                      (str  log-dir "/debug.log"))})
                                                   {:min-level :info
                                                    :level :info})}})
-  
-  (self-eval? '(1 2 3))
-  (self-eval? '(+ 2 (+ 1 1 1)))
   
   (eval2 '(1 2 3))
   (eval2 '(+ 2  3))
