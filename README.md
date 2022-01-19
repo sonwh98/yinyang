@@ -1,6 +1,6 @@
 # yinyang
 
-Cljure implemented in Clojure
+Clojure implemented in Clojure
 
 
 ## Usage
