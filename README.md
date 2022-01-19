@@ -1,22 +1,25 @@
 # yinyang
 
-FIXME: description
+Cljure implemented in Clojure
 
-## Installation
-
-Download from http://example.com/FIXME.
 
 ## Usage
 
-FIXME: explanation
 
-    $ java -jar yinyang-0.1.0-standalone.jar [args]
-
+    $ lein repl
+ 
 ## Options
 
-FIXME: listing of options this app accepts.
-
 ## Examples
+```clojure
+
+(eval2 '(* 3 (+ 1 2 3)) {})
+
+(eval2 '((lambda [x y]
+                   (* x y)) 5 3 )
+         {'* *})
+
+```
 
 ...
 
