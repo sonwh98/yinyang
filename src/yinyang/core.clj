@@ -51,7 +51,8 @@
                                   (eval2 last-ex env))
     (and (seq? s-ex)
          (let [f (first s-ex)]
-           (= f 'lambda)))      (let [params (second s-ex)
+           (or (= f 'lambda)
+               (= f 'fn))))      (let [params (second s-ex)
                                       body (drop 2 s-ex)
                                       body (conj body 'do)]
                                   (fn [& args]
@@ -82,8 +83,8 @@
                                                   {:min-level :info
                                                    :level :info})}})
   
-  (eval2 '(1 2 3))
-  (eval2 '(+ 2  3))
+  (eval2 '(1 2 3) {}) ;;error
+  (eval2 '(+ 2  3) {'+ +})
   (eval2 '(+ 2 (+ 1 1 1)))
   (eval2 '(+ 2  3 4))
   (eval2 '(* 3 (+ 1 2 3)) {})
