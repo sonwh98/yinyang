@@ -1,6 +1,6 @@
 # yinyang
 
-Clojure implemented in Clojure
+Clojure implemented in Clojure. This is a science experiment with the ultimate goal of implementing Clojure in Rust.
 
 
 ## Usage
@@ -16,7 +16,7 @@ Clojure implemented in Clojure
 (eval2 '(* 3 (+ 1 2 3)) {})
 
 (eval2 '((lambda [x y]
-                   (* x y)) 5 3 )
+                 (* x y)) 5 3 )
          {'* *})
 
 ```
