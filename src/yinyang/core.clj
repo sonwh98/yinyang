@@ -40,6 +40,9 @@
                                            [(eval2 k env)
                                             (eval2 v env)]))
     (and (seq? s-ex)
+         (= 'quote
+            (first s-ex)))      (first (rest s-ex))
+    (and (seq? s-ex)
          (let [f (first s-ex)]
            (= f 'do)))          (let [do-body (rest s-ex)
                                       last-ex (last do-body)
@@ -84,6 +87,7 @@
                                                    :level :info})}})
   
   (eval2 '(1 2 3) {}) ;;error
+  (eval2 ''(1 2 3) {}) ;;; (1 2 3)
   (eval2 '(+ 2  3) {'+ +})
   (eval2 '(+ 2 (+ 1 1 1)))
   (eval2 '(+ 2  3 4))
