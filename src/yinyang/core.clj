@@ -27,49 +27,58 @@
              (nth args# 3))
        (.applyTo f# args#))))
 
+(defn quote? [s-ex]
+  (and (seq? s-ex)
+       (= 'quote
+          (first s-ex))))
+
+(defn do? [s-ex]
+  (and (seq? s-ex)
+       (let [f (first s-ex)]
+         (= f 'do))))
+
+(defn lambda? [s-ex]
+  (and (seq? s-ex)
+         (let [f (first s-ex)]
+           (or (= f 'lambda)
+               (= f 'fn)))))
+
 (defn eval2 [s-ex env]
   (log/info {:eval2-s-ex s-ex
              :env env})
   (cond
-    (symbol? s-ex)              (let [v (env s-ex)]
-                                  (log/info {:s s-ex
-                                             :v v})
-                                  v)
-    (vector? s-ex)              (mapv #(eval2 % env) s-ex)
-    (map? s-ex)                 (into {} (for [[k v] s-ex]
-                                           [(eval2 k env)
-                                            (eval2 v env)]))
-    (and (seq? s-ex)
-         (= 'quote
-            (first s-ex)))      (first (rest s-ex))
-    (and (seq? s-ex)
-         (let [f (first s-ex)]
-           (= f 'do)))          (let [do-body (rest s-ex)
-                                      last-ex (last do-body)
-                                      ex-but-last (drop-last do-body)]
-                                  (map #(eval2 % env) ex-but-last)
-                                  (log/info {:do-body do-body
-                                             :ex-but-last ex-but-last
-                                             :last-ex last-ex})
-                                  (eval2 last-ex env))
-    (and (seq? s-ex)
-         (let [f (first s-ex)]
-           (or (= f 'lambda)
-               (= f 'fn))))      (let [params (second s-ex)
-                                      body (drop 2 s-ex)
-                                      body (conj body 'do)]
-                                  (fn [& args]
-                                    (eval2 body (fn [a-symbol]
-                                                  (let [v (env a-symbol)]
-                                                    (log/info {:params params
-                                                               :a-symbol a-symbol
-                                                               :a-symbol-v v
-                                                               :args args})
-                                                    (if v
-                                                      v
-                                                      (let [pairs (mapv vec (partition 2 (interleave params args)))
-                                                            env2 (into {} pairs)]
-                                                        (env2 a-symbol))))))))
+    (symbol? s-ex) (let [v (env s-ex)]
+                     (log/info {:s s-ex
+                                :v v})
+                     v)
+    (vector? s-ex) (mapv #(eval2 % env) s-ex)
+    (map? s-ex)    (into {} (for [[k v] s-ex]
+                              [(eval2 k env)
+                               (eval2 v env)]))
+    (quote? s-ex) (first (rest s-ex))
+    (do? s-ex)    (let [do-body (rest s-ex)
+                        last-ex (last do-body)
+                        ex-but-last (drop-last do-body)]
+                    (map #(eval2 % env) ex-but-last)
+                    (log/info {:do-body do-body
+                               :ex-but-last ex-but-last
+                               :last-ex last-ex})
+                    (eval2 last-ex env))
+    (lambda? s-ex) (let [params (second s-ex)
+                         body (drop 2 s-ex)
+                         body (conj body 'do)]
+                     (fn [& args]
+                       (eval2 body (fn [a-symbol]
+                                     (let [v (env a-symbol)]
+                                       (log/info {:params params
+                                                  :a-symbol a-symbol
+                                                  :a-symbol-v v
+                                                  :args args})
+                                       (if v
+                                         v
+                                         (let [pairs (mapv vec (partition 2 (interleave params args)))
+                                               env2 (into {} pairs)]
+                                           (env2 a-symbol))))))))
     (seq? s-ex) (apply2 s-ex env)
     :else s-ex))
 
