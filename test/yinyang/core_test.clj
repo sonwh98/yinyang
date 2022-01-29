@@ -22,8 +22,17 @@
     (is (= 9 (eval2 '((lambda [x] (* x x)) 3)
                     {'* *})))
 
-    (let [sq (eval2 '(lambda [x] (* x x))
+    (let [sq (eval2 '(fn [x] (* x x))
                     {'* *})]
       (is (= 9 (eval2 '(square 3) {'square sq})))))
+
+  (testing "let"
+    (is (= 7
+           (eval2 '(let [x 2
+                         y 3]
+                     (* x y)
+                     (+ x y 2))
+                  {'* *
+                   '+ +}))))
   
   )

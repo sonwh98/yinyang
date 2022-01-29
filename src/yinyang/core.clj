@@ -43,14 +43,15 @@
            (or (= f 'lambda)
                (= f 'fn)))))
 
+(defn let? [s-ex]
+  (and (seq? s-ex)
+       (let [f (first s-ex)]
+         (= f 'let))))
+
 (defn eval2 [s-ex env]
   (log/info {:eval2-s-ex s-ex
              :env env})
-  (cond
-    (symbol? s-ex) (let [v (env s-ex)]
-                     (log/info {:s s-ex
-                                :v v})
-                     v)
+  (cond    
     (vector? s-ex) (mapv #(eval2 % env) s-ex)
     (map? s-ex)    (into {} (for [[k v] s-ex]
                               [(eval2 k env)
@@ -64,6 +65,18 @@
                                :ex-but-last ex-but-last
                                :last-ex last-ex})
                     (eval2 last-ex env))
+    (let? s-ex)     (let [bindings (second s-ex)
+                          pairs (mapv vec (partition 2 bindings))
+                          env2 (into {} pairs)
+                          body (drop 2 s-ex)
+                          implicit-do (conj body 'do)]
+                      (log/info {:bindings bindings
+                                 :do implicit-do})
+                      (eval2 implicit-do (merge env env2)))
+    (symbol? s-ex) (let [v (env s-ex)]
+                     (log/info {:s s-ex
+                                :v v})
+                     v)
     (lambda? s-ex) (let [params (second s-ex)
                          body (drop 2 s-ex)
                          body (conj body 'do)]
@@ -131,16 +144,5 @@
   
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
-
-  (seq? [1])
   
-  ({'x 2} 'x)
-  
-  (apply2 '(inc 2))
-  (take-last 2 [1 2 3 4 5])
-  (conj 1 '(2 3))
-  (conj '(1) 2)
-
-
-
   )
