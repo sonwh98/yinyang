@@ -56,7 +56,8 @@
 (defn eval2 [s-ex env]
   (log/info {:eval2-s-ex s-ex
              :env env})
-  (cond    
+  (cond
+    (set? s-ex)    (set (map #(eval2 % env) s-ex))
     (vector? s-ex) (mapv #(eval2 % env) s-ex)
     (map? s-ex)    (into {} (for [[k v] s-ex]
                               [(eval2 k env)

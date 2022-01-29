@@ -9,7 +9,10 @@
     (is (= [1 2 3]
            (eval2 '[1 2 3] {})))
     (is (= {:name "foo" :age 1}
-           (eval2 '{:name "foo" :age 1} {}))))
+           (eval2 '{:name "foo" :age 1} {})))
+    (is (= #{1 :a "b"}
+           (eval2 '#{1 :a "b"} {})))
+    )
 
   (testing "arithmatic expressions"
     (is (= 5 (eval2 '(+ 2  3)
