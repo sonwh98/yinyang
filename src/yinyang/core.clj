@@ -48,6 +48,11 @@
        (let [f (first s-ex)]
          (= f 'let))))
 
+(def global-env (atom {'* *
+                       '+ +
+                       '/ /
+                       '- -}))
+
 (defn eval2 [s-ex env]
   (log/info {:eval2-s-ex s-ex
              :env env})
@@ -73,7 +78,8 @@
                       (log/info {:bindings bindings
                                  :do implicit-do})
                       (eval2 implicit-do (merge env env2)))
-    (symbol? s-ex) (let [v (env s-ex)]
+    (symbol? s-ex) (let [v (or (env s-ex)
+                               (@global-env s-ex))]
                      (log/info {:s s-ex
                                 :v v})
                      v)
@@ -110,11 +116,11 @@
   
   (eval2 '(1 2 3) {}) ;;error
   (eval2 ''(1 2 3) {}) ;;; (1 2 3)
-  (eval2 '(+ 2  3) {'+ +})
-  (eval2 '(+ 2 (+ 1 1 1)))
-  (eval2 '(+ 2  3 4))
+  (eval2 '(+ 2  3) {})
+  (eval2 '(+ 2 (+ 1 1 1)) {})
+  (eval2 '(+ 2  3 4) {})
   (eval2 '(* 3 (+ 1 2 3)) {})
-  (eval2 '(inc 2) {})
+  (eval2 '(inc 2) {'inc inc})
   
 
   (eval2 '(lambda [x] (* x x)) {})
@@ -125,13 +131,11 @@
          {'* *})
 
   
-  (eval2 '(* x x) {'x 2
-                   '* *})
+  (eval2 '(* x x) {'x 2})
   
   (eval2 '((lambda [x]
                    (* x x)) 2)
-         {
-          'prn prn})
+         {})
 
   (eval2 '(prn {:x1 x}) {'x 3
                          'prn prn})
