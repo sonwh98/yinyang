@@ -34,5 +34,10 @@
                      (+ x y 2))
                   {'* *
                    '+ +}))))
+
+  (testing "def"
+    (let [pi (eval2 '(def pi 3.14) {})]
+      (is (= 3.14 pi))
+      (is (= 3.14 (@global-env 'pi)))))
   
   )

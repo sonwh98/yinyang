@@ -45,6 +45,9 @@
 (defn let? [s-ex]
   (pred-helper s-ex #(= 'let %)))
 
+(defn def? [s-ex]
+  (pred-helper s-ex #(= 'def %)))
+
 (def global-env (atom {'* *
                        '+ +
                        '/ /
@@ -79,6 +82,10 @@
                                (@global-env s-ex))]
                      (log/info {:s s-ex
                                 :v v})
+                     v)
+    (def? s-ex)    (let [[d s v] s-ex]
+                     (swap! global-env (fn [global-env]
+                                         (assoc global-env s v)))
                      v)
     (lambda? s-ex) (let [params (second s-ex)
                          body (drop 2 s-ex)
@@ -145,5 +152,5 @@
   
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
-  
+  (eval2 '(def pi 3.141) {})
   )
