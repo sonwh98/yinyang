@@ -27,26 +27,23 @@
              (nth args# 3))
        (.applyTo f# args#))))
 
-(defn quote? [s-ex]
+(defn pred-helper [s-ex pred]
   (and (seq? s-ex)
-       (= 'quote
-          (first s-ex))))
+       (let [f (first s-ex)]
+         (pred f))))
+
+(defn quote? [s-ex]
+  (pred-helper s-ex #(= 'quote %)))
 
 (defn do? [s-ex]
-  (and (seq? s-ex)
-       (let [f (first s-ex)]
-         (= f 'do))))
+  (pred-helper s-ex #(= 'do %)))
 
 (defn lambda? [s-ex]
-  (and (seq? s-ex)
-         (let [f (first s-ex)]
-           (or (= f 'lambda)
-               (= f 'fn)))))
+  (pred-helper s-ex #(or (= 'lambda %)
+                         (= 'fn %))))
 
 (defn let? [s-ex]
-  (and (seq? s-ex)
-       (let [f (first s-ex)]
-         (= f 'let))))
+  (pred-helper s-ex #(= 'let %)))
 
 (def global-env (atom {'* *
                        '+ +
