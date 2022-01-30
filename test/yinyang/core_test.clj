@@ -41,6 +41,10 @@
   (testing "def"
     (let [pi (eval2 '(def pi 3.14) {})]
       (is (= 3.14 pi))
-      (is (= 3.14 (@global-env 'pi)))))
-  
+      (is (= 3.14 (@global-env 'pi))))
+
+    (let [sq (eval2 '(def sq (lambda [x] (* x x)))
+                    {})]
+      (is (= 4 (eval2 '(sq 2) {})))))
+
   )

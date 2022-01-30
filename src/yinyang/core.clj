@@ -86,7 +86,7 @@
                      v)
     (def? s-ex)    (let [[d s v] s-ex]
                      (swap! global-env (fn [global-env]
-                                         (assoc global-env s v)))
+                                         (assoc global-env s (eval2 v {}))))
                      v)
     (lambda? s-ex) (let [params (second s-ex)
                          body (drop 2 s-ex)
