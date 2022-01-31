@@ -113,25 +113,25 @@
            buffer nil]
       (let [c (first char-seq)]
         (cond
-          (= c \() (recur (rest char-seq)
-                          (inc level)
-                          (str buffer c))
-          (= c \)) (recur (rest char-seq)
-                          (dec level)
-                          (str buffer c))
-          (nil? c) buffer
+          (= c \()            (recur (rest char-seq)
+                                     (inc level)
+                                     (str buffer c))
+          (= c \))            (recur (rest char-seq)
+                                     (dec level)
+                                     (str buffer c))
           (and (zero? level)
                (nil? buffer)) (recur (rest char-seq)
                                           level
                                           buffer)
-          (zero? level) (let [code-as-data (read-string buffer)]
-                          (log/info {:code code-as-data})
-                          (recur (rest char-seq)
-                                 level
-                                 nil))
-          :else (recur (rest char-seq)
-                       level
-                       (str buffer c)))))))
+          (zero? level)       (let [code-as-data (read-string buffer)]
+                                (eval2 code-as-data {})
+                                (recur (rest char-seq)
+                                       level
+                                       nil))
+          (nil? c)            buffer
+          :else               (recur (rest char-seq)
+                                     level
+                                     (str buffer c)))))))
 
 (defn config-log []
   (log/merge-config! {:min-level :info
