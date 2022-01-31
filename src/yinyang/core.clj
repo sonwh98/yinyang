@@ -1,6 +1,7 @@
 (ns yinyang.core
   (:require [clojure.pprint :as pp]
-            [taoensso.timbre :as log])
+            [taoensso.timbre :as log]
+            [taoensso.timbre.appenders.core :as appenders])
   (:gen-class))
 
 (declare eval2)
@@ -41,7 +42,6 @@
 (defn lambda? [s-ex]
   (pred-helper s-ex #(or (= 'lambda %)
                          (= 'fn %))))
-
 (defn let? [s-ex]
   (pred-helper s-ex #(= 'let %)))
 
@@ -106,8 +106,34 @@
     (seq? s-ex) (apply2 s-ex env)
     :else s-ex))
 
-(comment
-  (require '[taoensso.timbre.appenders.core :as appenders])
+(defn load-file2 [file-name]
+  (let [char-seq (-> file-name slurp seq)]
+    (loop [char-seq char-seq
+           level 0
+           buffer nil]
+      (let [c (first char-seq)]
+        (cond
+          (= c \() (recur (rest char-seq)
+                          (inc level)
+                          (str buffer c))
+          (= c \)) (recur (rest char-seq)
+                          (dec level)
+                          (str buffer c))
+          (nil? c) buffer
+          (and (zero? level)
+               (nil? buffer)) (recur (rest char-seq)
+                                          level
+                                          buffer)
+          (zero? level) (let [code-as-data (read-string buffer)]
+                          (log/info {:code code-as-data})
+                          (recur (rest char-seq)
+                                 level
+                                 nil))
+          :else (recur (rest char-seq)
+                       level
+                       (str buffer c)))))))
+
+(defn config-log []
   (log/merge-config! {:min-level :info
                       :middleware [(fn [data]
                                      (update data :vargs (partial mapv #(if (string? %)
@@ -117,7 +143,13 @@
                                   :catalog (merge (appenders/spit-appender {:fname (let [log-dir (or (System/getenv "LOG_DIR") ".")]
                                                                                      (str  log-dir "/debug.log"))})
                                                   {:min-level :info
-                                                   :level :info})}})
+                                                   :level :info})}}))
+
+(comment
+  (config-log)
+  (log/spy :info (* 2 2))
+  (load-file2 "src/yinyang/fib.clj")
+
   
   (eval2 '(1 2 3) {}) ;;error
   (eval2 ''(1 2 3) {}) ;;; (1 2 3)
@@ -154,4 +186,5 @@
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
   (eval2 '(def pi 3.141) {})
+  (load-file "src/yinyang/core.clj")
   )
