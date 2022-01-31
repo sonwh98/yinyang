@@ -119,6 +119,7 @@
           (= c \))            (recur (rest char-seq)
                                      (dec level)
                                      (str buffer c))
+          (nil? c)            buffer
           (and (zero? level)
                (nil? buffer)) (recur (rest char-seq)
                                           level
@@ -128,7 +129,7 @@
                                 (recur (rest char-seq)
                                        level
                                        nil))
-          (nil? c)            buffer
+
           :else               (recur (rest char-seq)
                                      level
                                      (str buffer c)))))))
@@ -149,8 +150,8 @@
   (config-log)
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
-
-  
+  (eval2 '(sq 2) {})
+  (@global-env 'sq)
   (eval2 '(1 2 3) {}) ;;error
   (eval2 ''(1 2 3) {}) ;;; (1 2 3)
   (eval2 '(+ 2  3) {})
