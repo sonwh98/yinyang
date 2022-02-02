@@ -122,18 +122,17 @@
                                      (dec level)
                                      (str buffer c)
                                      forms)
-          (nil? c)            buffer
+          (nil? c)           forms
           (and (zero? level)
                (nil? buffer)) (recur (rest char-seq)
                                      level
                                      buffer
                                      forms)
-          (zero? level)       (let [code-as-data (read-string buffer)]
-                                (eval2 code-as-data {})
+          (zero? level)       (let [form (read-string buffer)]
                                 (recur (rest char-seq)
                                        level
                                        nil
-                                       forms))
+                                       (conj forms form)))
 
           :else               (recur (rest char-seq)
                                      level
@@ -184,6 +183,8 @@
   (config-log)
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
+  (load-forms "src/yinyang/fib.clj")
+  
   (eval2 '(sq 2) {})
   (@global-env 'four)
   (eval2 'four {})
