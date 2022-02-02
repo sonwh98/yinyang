@@ -5,6 +5,12 @@
             [yinyang.pred :as p])
   (:gen-class))
 
+(defonce global-env (atom {'* *
+                           '+ +
+                           '/ /
+                           '- -
+                           'prn prn}))
+
 (declare eval2)
 
 (defmacro apply2 [s-ex env]
@@ -27,12 +33,6 @@
              (nth args# 2)
              (nth args# 3))
        (.applyTo f# args#))))
-
-(def global-env (atom {'* *
-                       '+ +
-                       '/ /
-                       '- -
-                       'prn prn}))
 
 (defn eval2 [s-ex env]
   (log/debug {:eval2-s-ex s-ex
