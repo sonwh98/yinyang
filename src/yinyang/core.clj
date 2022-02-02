@@ -1,7 +1,8 @@
 (ns yinyang.core
   (:require [clojure.pprint :as pp]
             [taoensso.timbre :as log]
-            [taoensso.timbre.appenders.core :as appenders])
+            [taoensso.timbre.appenders.core :as appenders]
+            [yinyang.pred :as p])
   (:gen-class))
 
 (declare eval2)
@@ -27,26 +28,6 @@
              (nth args# 3))
        (.applyTo f# args#))))
 
-(defn pred-helper [s-ex pred]
-  (and (seq? s-ex)
-       (let [f (first s-ex)]
-         (pred f))))
-
-(defn quote? [s-ex]
-  (pred-helper s-ex #(= 'quote %)))
-
-(defn do? [s-ex]
-  (pred-helper s-ex #(= 'do %)))
-
-(defn lambda? [s-ex]
-  (pred-helper s-ex #(or (= 'lambda %)
-                         (= 'fn %))))
-(defn let? [s-ex]
-  (pred-helper s-ex #(= 'let %)))
-
-(defn def? [s-ex]
-  (pred-helper s-ex #(= 'def %)))
-
 (def global-env (atom {'* *
                        '+ +
                        '/ /
@@ -63,8 +44,8 @@
     (map? s-ex)    (into {} (for [[k v] s-ex]
                               [(eval2 k env)
                                (eval2 v env)]))
-    (quote? s-ex) (first (rest s-ex))
-    (do? s-ex)    (let [do-body (rest s-ex)
+    (p/quote? s-ex) (first (rest s-ex))
+    (p/do? s-ex)    (let [do-body (rest s-ex)
                         last-ex (last do-body)
                         ex-but-last (drop-last do-body)]
                     (map #(eval2 % env) ex-but-last)
@@ -72,7 +53,7 @@
                                 :ex-but-last ex-but-last
                                 :last-ex last-ex})
                     (eval2 last-ex env))
-    (let? s-ex)     (let [bindings (second s-ex)
+    (p/let? s-ex)     (let [bindings (second s-ex)
                           pairs (mapv vec (partition 2 bindings))
                           env2 (into {} pairs)
                           body (drop 2 s-ex)
@@ -85,11 +66,11 @@
                      (log/debug {:s s-ex
                                  :v v})
                      v)
-    (def? s-ex)    (let [[d s v] s-ex]
+    (p/def? s-ex)    (let [[d s v] s-ex]
                      (swap! global-env (fn [global-env]
                                          (assoc global-env s (eval2 v {}))))
                      v)
-    (lambda? s-ex) (let [params (second s-ex)
+    (p/lambda? s-ex) (let [params (second s-ex)
                          body (drop 2 s-ex)
                          body (conj body 'do)]
                      (fn [& args]
