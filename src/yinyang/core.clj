@@ -106,6 +106,40 @@
     (seq? s-ex) (apply2 s-ex env)
     :else s-ex))
 
+(defn load-forms [file-name]
+  (let [char-seq (-> file-name slurp seq)]
+    (loop [char-seq char-seq
+           level 0
+           buffer nil
+           forms []]
+      (let [c (first char-seq)]
+        (cond
+          (= c \()            (recur (rest char-seq)
+                                     (inc level)
+                                     (str buffer c)
+                                     forms)
+          (= c \))            (recur (rest char-seq)
+                                     (dec level)
+                                     (str buffer c)
+                                     forms)
+          (nil? c)            buffer
+          (and (zero? level)
+               (nil? buffer)) (recur (rest char-seq)
+                                     level
+                                     buffer
+                                     forms)
+          (zero? level)       (let [code-as-data (read-string buffer)]
+                                (eval2 code-as-data {})
+                                (recur (rest char-seq)
+                                       level
+                                       nil
+                                       forms))
+
+          :else               (recur (rest char-seq)
+                                     level
+                                     (str buffer c)
+                                     forms))))))
+
 (defn load-file2 [file-name]
   (let [char-seq (-> file-name slurp seq)]
     (loop [char-seq char-seq
@@ -122,8 +156,8 @@
           (nil? c)            buffer
           (and (zero? level)
                (nil? buffer)) (recur (rest char-seq)
-                                          level
-                                          buffer)
+                                     level
+                                     buffer)
           (zero? level)       (let [code-as-data (read-string buffer)]
                                 (eval2 code-as-data {})
                                 (recur (rest char-seq)
@@ -151,7 +185,9 @@
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
   (eval2 '(sq 2) {})
-  (@global-env 'sq)
+  (@global-env 'four)
+  (eval2 'four {})
+  
   (eval2 '(1 2 3) {}) ;;error
   (eval2 ''(1 2 3) {}) ;;; (1 2 3)
   (eval2 '(+ 2  3) {})
@@ -187,5 +223,5 @@
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
   (eval2 '(def pi 3.141) {})
-  (load-file "src/yinyang/core.clj")
+
   )
