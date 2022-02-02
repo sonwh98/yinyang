@@ -7,13 +7,12 @@
 (declare eval2)
 
 (defmacro apply2 [s-ex env]
-  `(let [;;foo# (log/info {:apply2-s-ex ~s-ex})
-         s-ex# (map #(eval2 % ~env) ~s-ex)
+  `(let [s-ex# (map #(eval2 % ~env) ~s-ex)
          f# (first s-ex#)
          args# (rest s-ex#)
          args-count# (count args#)]
-     (log/info {:apply2-s-ex s-ex#
-                :apply2-args args#})
+     (log/debug {:apply2-s-ex s-ex#
+                 :apply2-args args#})
      (case args-count#
        1 (f# (nth args# 0))
        2 (f# (nth args# 0)
@@ -51,11 +50,13 @@
 (def global-env (atom {'* *
                        '+ +
                        '/ /
-                       '- -}))
+                       '- -
+                       'prn prn}))
 
 (defn eval2 [s-ex env]
-  (log/info {:eval2-s-ex s-ex
-             :env env})
+  (log/debug {:eval2-s-ex s-ex
+              :env env
+              :global-env @global-env})
   (cond
     (set? s-ex)    (set (map #(eval2 % env) s-ex))
     (vector? s-ex) (mapv #(eval2 % env) s-ex)
@@ -67,22 +68,22 @@
                         last-ex (last do-body)
                         ex-but-last (drop-last do-body)]
                     (map #(eval2 % env) ex-but-last)
-                    (log/info {:do-body do-body
-                               :ex-but-last ex-but-last
-                               :last-ex last-ex})
+                    (log/debug {:do-body do-body
+                                :ex-but-last ex-but-last
+                                :last-ex last-ex})
                     (eval2 last-ex env))
     (let? s-ex)     (let [bindings (second s-ex)
                           pairs (mapv vec (partition 2 bindings))
                           env2 (into {} pairs)
                           body (drop 2 s-ex)
                           implicit-do (conj body 'do)]
-                      (log/info {:bindings bindings
-                                 :do implicit-do})
+                      (log/debug {:bindings bindings
+                                  :do implicit-do})
                       (eval2 implicit-do (merge env env2)))
     (symbol? s-ex) (let [v (or (env s-ex)
                                (@global-env s-ex))]
-                     (log/info {:s s-ex
-                                :v v})
+                     (log/debug {:s s-ex
+                                 :v v})
                      v)
     (def? s-ex)    (let [[d s v] s-ex]
                      (swap! global-env (fn [global-env]
@@ -94,10 +95,10 @@
                      (fn [& args]
                        (eval2 body (fn [a-symbol]
                                      (let [v (env a-symbol)]
-                                       (log/info {:params params
-                                                  :a-symbol a-symbol
-                                                  :a-symbol-v v
-                                                  :args args})
+                                       (log/debug {:params params
+                                                   :a-symbol a-symbol
+                                                   :a-symbol-v v
+                                                   :args args})
                                        (if v
                                          v
                                          (let [pairs (mapv vec (partition 2 (interleave params args)))
@@ -146,8 +147,8 @@
     (doseq [f forms]
       (eval2 f {}))))
 
-(defn config-log []
-  (log/merge-config! {:min-level :info
+(defn config-log [level]
+  (log/merge-config! {:min-level level
                       :middleware [(fn [data]
                                      (update data :vargs (partial mapv #(if (string? %)
                                                                           %
@@ -159,7 +160,7 @@
                                                    :level :info})}}))
 
 (comment
-  (config-log)
+  (config-log :info)
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
   (file->forms "src/yinyang/fib.clj")
