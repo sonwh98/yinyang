@@ -106,7 +106,7 @@
                                      (dec level)
                                      (str buffer c)
                                      forms)
-          (nil? c)           forms
+          (nil? c)            forms
           (and (zero? level)
                (nil? buffer)) (recur (rest char-seq)
                                      level
