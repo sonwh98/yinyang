@@ -90,43 +90,41 @@
     (seq? s-ex)      (apply2 s-ex env)
     :else            s-ex))
 
-(defn file->forms
-  "parse file into clojure s-expression forms"
-  [file-name]
-  (let [char-seq (-> file-name slurp seq)]
-    (loop [char-seq char-seq
-           level 0
-           buffer nil
-           forms []]
-      (let [c (first char-seq)]
-        (cond
-          (= c \()            (recur (rest char-seq)
-                                     (inc level)
-                                     (str buffer c)
-                                     forms)
-          (= c \))            (recur (rest char-seq)
-                                     (dec level)
-                                     (str buffer c)
-                                     forms)
-          (nil? c)            forms
-          (and (zero? level)
-               (nil? buffer)) (recur (rest char-seq)
+(defn text->forms
+  "parse text into clojure s-expressions. returns a vector of clojure s-expression forms"
+  [txt]
+  (loop [char-seq (seq txt)
+         level 0
+         buffer nil
+         forms []]
+    (let [c (first char-seq)]
+      (cond
+        (= c \()            (recur (rest char-seq)
+                                   (inc level)
+                                   (str buffer c)
+                                   forms)
+        (= c \))            (recur (rest char-seq)
+                                   (dec level)
+                                   (str buffer c)
+                                   forms)
+        (nil? c)            forms
+        (and (zero? level)
+             (nil? buffer)) (recur (rest char-seq)
+                                   level
+                                   buffer
+                                   forms)
+        (zero? level)       (let [form (read-string buffer)]
+                              (recur (rest char-seq)
                                      level
-                                     buffer
-                                     forms)
-          (zero? level)       (let [form (read-string buffer)]
-                                (recur (rest char-seq)
-                                       level
-                                       nil
-                                       (conj forms form)))
+                                     nil
+                                     (conj forms form)))
 
-          :else               (recur (rest char-seq)
-                                     level
-                                     (str buffer c)
-                                     forms))))))
-
+        :else               (recur (rest char-seq)
+                                   level
+                                   (str buffer c)
+                                   forms)))))
 (defn load-file2 [file-name]
-  (let [forms (file->forms file-name)]
+  (let [forms (-> file-name slurp text->forms)]
     (doseq [f forms]
       (eval2 f {}))))
 
@@ -148,7 +146,7 @@
   (config-log :info)
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
-  (file->forms "src/yinyang/fib.clj")
+  (load-file2 "foo.clj")
   
   (eval2 '(sq 2) {})
   (@global-env 'four)
