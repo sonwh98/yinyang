@@ -77,11 +77,8 @@
                        (log/debug {:bindings bindings
                                    :do implicit-do})
                        (eval2 implicit-do (merge env env2)))
-    (symbol? s-ex)   (let [v (or (env s-ex)
-                                 (@global-env s-ex))]
-                       (log/debug {:s s-ex
-                                   :v v})
-                       v)
+    (symbol? s-ex)   (or (env s-ex)
+                         (@global-env s-ex))
     (p/def? s-ex)    (let [[d s v] s-ex]
                        (swap! global-env (fn [global-env]
                                            (assoc global-env s (eval2 v {}))))
@@ -149,6 +146,7 @@
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
   (file->forms "src/yinyang/fib.clj")
+  (eval2 '(twice 9) {})
   
   (eval2 '(sq 2) {})
   (@global-env 'four)
