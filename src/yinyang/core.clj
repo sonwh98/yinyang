@@ -133,12 +133,14 @@
 (defn config-log [level]
   (log/merge-config! {:min-level level
                       :middleware [(fn [data]
-                                     (update data :vargs (partial mapv #(if (string? %)
-                                                                          %
-                                                                          (with-out-str (pp/pprint %))))))]
+                                     (update data :vargs
+                                             (partial mapv #(if (string? %)
+                                                              %
+                                                              (with-out-str (pp/pprint %))))))]
                       :appenders {:println {:enabled? false}
-                                  :catalog (merge (appenders/spit-appender {:fname (let [log-dir (or (System/getenv "LOG_DIR") ".")]
-                                                                                     (str  log-dir "/debug.log"))})
+                                  :catalog (merge (appenders/spit-appender
+                                                   {:fname (let [log-dir (or (System/getenv "LOG_DIR") ".")]
+                                                             (str  log-dir "/debug.log"))})
                                                   {:min-level :info
                                                    :level :info})}}))
 
