@@ -5,6 +5,9 @@
        (let [f (first s-ex)]
          (pred f))))
 
+(defn ns? [s-ex]
+  (pred-helper s-ex #(= 'ns %)))
+
 (defn quote? [s-ex]
   (pred-helper s-ex #(= 'quote %)))
 

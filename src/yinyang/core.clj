@@ -1,15 +1,16 @@
 (ns yinyang.core
   (:require [clojure.pprint :as pp]
+            [clojure.string :as string]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]
             [yinyang.pred :as p])
   (:gen-class))
 
-(defonce global-env (atom {'* *
-                           '+ +
-                           '/ /
-                           '- -
-                           'prn prn}))
+(def global-env (atom {'* *
+                       '+ +
+                       '/ /
+                       '- -
+                       'prn prn}))
 
 (declare eval2)
 
@@ -34,6 +35,10 @@
              (nth args# 3))
        (.applyTo f# args#))))
 
+(defn ns-parts [a-ns]
+  (let [ns-parts (string/split (str a-ns) #"\.")]
+    (mapv symbol ns-parts)))
+
 (defn eval2 [s-ex env]
   (log/debug {:eval2-s-ex s-ex
               :env env
@@ -54,7 +59,18 @@
                                            (let [pairs (mapv vec (partition 2 (interleave params args)))
                                                  env2 (into {} pairs)]
                                              (env2 a-symbol))))))))
-    
+    (p/ns? s-ex)     (let [a-ns (second s-ex)
+                           ns-parts (ns-parts a-ns)
+                           ns-val (get-in @global-env ns-parts)]
+                       (when-not ns-val
+                         (swap! global-env assoc-in ns-parts {})
+                         )
+                       
+                       (swap! global-env assoc 'ns* a-ns)
+                       (log/info {:a-ns a-ns
+                                  :ns-val ns-val
+                                  :ns-parts ns-parts })
+                       )
     (set? s-ex)      (set (map #(eval2 % env) s-ex))
     (vector? s-ex)   (mapv #(eval2 % env) s-ex)
     (map? s-ex)      (into {} (for [[k v] s-ex]
@@ -78,10 +94,24 @@
                                    :do implicit-do})
                        (eval2 implicit-do (merge env env2)))
     (symbol? s-ex)   (or (env s-ex)
-                         (@global-env s-ex))
-    (p/def? s-ex)    (let [[d s v] s-ex]
-                       (swap! global-env (fn [global-env]
-                                           (assoc global-env s (eval2 v {}))))
+                         (let [current-ns (@global-env 'ns*)
+                               ns-path (ns-parts current-ns)
+                               s-path (conj ns-path s-ex)
+                               s-val (or (get-in @global-env s-path)
+                                         (get-in @global-env [s-ex]))]
+                           (log/debug {:ns-path ns-path
+                                       :s-path s-path
+                                       :s-val s-val
+                                       :global-env global-env})
+                           
+                           s-val))
+    (p/def? s-ex)    (let [[d s v] s-ex
+                           current-ns (@global-env 'ns*)]
+                       (swap! global-env update-in (ns-parts current-ns)
+                              (fn [current-ns]
+                                (assoc current-ns s (eval2 v {}))))
+                       #_(swap! global-env (fn [global-env]
+                                             (assoc global-env s (eval2 v {}))))
                        v)
     
     (seq? s-ex)      (apply2 s-ex env)
@@ -144,7 +174,7 @@
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
   (load-file2 "foo.clj")
-  
+
   (eval2 '(sq 2) {})
   (@global-env 'four)
   (eval2 'four {})
@@ -184,5 +214,5 @@
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
   (eval2 '(def pi 3.141) {})
-
+  
   )
