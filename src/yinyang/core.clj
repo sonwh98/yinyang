@@ -66,7 +66,7 @@
                          (swap! global-env assoc-in ns-parts {})
                          )
                        
-                       (swap! global-env assoc 'ns* a-ns)
+                       (swap! global-env assoc '*ns* a-ns)
                        (log/info {:a-ns a-ns
                                   :ns-val ns-val
                                   :ns-parts ns-parts })
@@ -94,7 +94,7 @@
                                    :do implicit-do})
                        (eval2 implicit-do (merge env env2)))
     (symbol? s-ex)   (or (env s-ex)
-                         (let [current-ns (@global-env 'ns*)
+                         (let [current-ns (@global-env '*ns*)
                                ns-path (ns-parts current-ns)
                                s-path (conj ns-path s-ex)
                                s-val (or (get-in @global-env s-path)
@@ -106,7 +106,7 @@
                            
                            s-val))
     (p/def? s-ex)    (let [[d s v] s-ex
-                           current-ns (@global-env 'ns*)]
+                           current-ns (@global-env '*ns*)]
                        (swap! global-env update-in (ns-parts current-ns)
                               (fn [current-ns]
                                 (assoc current-ns s (eval2 v {}))))
