@@ -22,3 +22,6 @@
 
 (defn def? [s-ex]
   (pred-helper s-ex #(= 'def %)))
+
+(defn defn? [s-ex]
+  (pred-helper s-ex #(= 'defn %)))

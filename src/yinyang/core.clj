@@ -67,10 +67,9 @@
                          )
                        
                        (swap! global-env assoc '*ns* a-ns)
-                       (log/info {:a-ns a-ns
-                                  :ns-val ns-val
-                                  :ns-parts ns-parts })
-                       )
+                       (log/debug {:a-ns a-ns
+                                   :ns-val ns-val
+                                   :ns-parts ns-parts }))
     (set? s-ex)      (set (map #(eval2 % env) s-ex))
     (vector? s-ex)   (mapv #(eval2 % env) s-ex)
     (map? s-ex)      (into {} (for [[k v] s-ex]
@@ -113,7 +112,14 @@
                        #_(swap! global-env (fn [global-env]
                                              (assoc global-env s (eval2 v {}))))
                        v)
-    
+    (p/defn? s-ex)    (let [[_ fn-name fn-param & body] s-ex
+                            lambda (concat '(lambda)
+                                           [fn-param]
+                                           body)
+                            def-lambda (concat '(def)
+                                               [fn-name]
+                                               [lambda])]
+                        (eval2 def-lambda env))
     (seq? s-ex)      (apply2 s-ex env)
     :else            s-ex))
 
