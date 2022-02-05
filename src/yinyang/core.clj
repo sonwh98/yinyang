@@ -109,8 +109,6 @@
                        (swap! global-env update-in (ns-parts current-ns)
                               (fn [current-ns]
                                 (assoc current-ns s (eval2 v {}))))
-                       #_(swap! global-env (fn [global-env]
-                                             (assoc global-env s (eval2 v {}))))
                        v)
     (p/defn? s-ex)    (let [[_ fn-name fn-param & body] s-ex
                             lambda (concat '(lambda)
