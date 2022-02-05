@@ -10,7 +10,9 @@
                        '+ +
                        '/ /
                        '- -
-                       'prn prn}))
+                       'prn prn
+                       '= =
+                       }))
 
 (declare eval2)
 
@@ -104,7 +106,7 @@
                                        :global-env global-env})
                            
                            s-val))
-    (p/def? s-ex)    (let [[d s v] s-ex
+    (p/def? s-ex)    (let [[_ s v] s-ex
                            current-ns (@global-env '*ns*)]
                        (swap! global-env update-in (ns-parts current-ns)
                               (fn [current-ns]
@@ -118,6 +120,10 @@
                                                [fn-name]
                                                [lambda])]
                         (eval2 def-lambda env))
+    (p/if? s-ex)     (let [[_ test branch1 branch2] s-ex]
+                       (if test
+                         (eval2 branch1 env)
+                         (eval2 branch2 env)))
     (seq? s-ex)      (apply2 s-ex env)
     :else            s-ex))
 
@@ -175,13 +181,15 @@
 
 (comment
   (config-log :info)
+  (config-log :debug)
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
-  (load-file2 "foo.clj")
 
   (eval2 '(sq 2) {})
+  (eval2 '(fib 0) {})
   (@global-env 'four)
   (eval2 'four {})
+  (eval2 '(if false 1 0) {})
   
   (eval2 '(1 2 3) {}) ;;error
   (eval2 ''(1 2 3) {}) ;;; (1 2 3)
@@ -218,5 +226,4 @@
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
   (eval2 '(def pi 3.141) {})
-  
   )

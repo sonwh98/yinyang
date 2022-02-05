@@ -25,3 +25,6 @@
 
 (defn defn? [s-ex]
   (pred-helper s-ex #(= 'defn %)))
+
+(defn if? [s-ex]
+  (pred-helper s-ex #(= 'if %)))
