@@ -107,15 +107,14 @@
                            
                            s-val))
     (p/def? s-ex)    (let [[_ s v] s-ex
-                           current-ns (@global-env '*ns*)
-                           ns-path (ns-parts current-ns)]
-                       (log/info {:current-ns current-ns
-                                  :ns-path ns-path})
-                       (if current-ns
-                         (swap! global-env update-in ns-path
-                                          (fn [current-ns]
-                                            (assoc current-ns s (eval2 v env))))
-                         (swap! global-env assoc s (eval2 v env)))
+                           this-ns (@global-env '*ns*)
+                           v (eval2 v env)]
+                       (if this-ns
+                         (let [ns-path (ns-parts this-ns)]
+                           (swap! global-env update-in ns-path
+                                  (fn [current-ns]
+                                    (assoc current-ns s v))))
+                         (swap! global-env assoc s v))
                        v)
     (p/defn? s-ex)    (let [[_ fn-name fn-param & body] s-ex
                             lambda (concat '(lambda)
@@ -124,7 +123,7 @@
                             def-lambda (concat '(def)
                                                [fn-name]
                                                [lambda])]
-                        (log/info {:def-lambda def-lambda})
+                        (log/debug {:def-lambda def-lambda})
                         (eval2 def-lambda env))
     (p/if? s-ex)     (let [[_ test branch1 branch2] s-ex]
                        (log/debug {:test test
@@ -195,7 +194,7 @@
   (load-file2 "src/yinyang/fib.clj")
 
   (eval2 '(sq 2) {})
-  (eval2 '(fib 7) {})
+  (eval2 '(fib 9) {})
   (eval2 '(cube 2) {})
 
   (eval2 '(defn fib [x]
@@ -207,25 +206,25 @@
                 (+ (fib (- x 1))
                    (fib (- x 2)))))) {})
 
-    (eval2 '(defn fib [x]
-              (prn {:x x
-                    := (= x 0)}))
-           {})
+  (eval2 '(defn fib [x]
+            (prn {:x x
+                  := (= x 0)}))
+         {})
 
-    (eval2 '(defn fib [x]
-              (prn {:x x
-                    := (= x 0)})
-              (if (= x 0)
-                2
-                1)) {})
-    (def f (eval2 
-            '(lambda [x]
-                     (prn {:x x, := (= x 0)})
-                     (if (= x 0)
-                       0
-                       1))
-            {}))
-    (f 1)
+  (eval2 '(defn fib [x]
+            (prn {:x x
+                  := (= x 0)})
+            (if (= x 0)
+              2
+              1)) {})
+  (def f (eval2 
+          '(lambda [x]
+                   (prn {:x x, := (= x 0)})
+                   (if (= x 0)
+                     0
+                     1))
+          {}))
+  (f 1)
   (@global-env 'four)
   (eval2 'four {})
   (eval2 '(if false 1 0) {})
