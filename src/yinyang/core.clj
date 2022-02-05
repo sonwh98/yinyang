@@ -107,10 +107,15 @@
                            
                            s-val))
     (p/def? s-ex)    (let [[_ s v] s-ex
-                           current-ns (@global-env '*ns*)]
-                       (swap! global-env update-in (ns-parts current-ns)
-                              (fn [current-ns]
-                                (assoc current-ns s (eval2 v {}))))
+                           current-ns (@global-env '*ns*)
+                           ns-path (ns-parts current-ns)]
+                       (log/info {:current-ns current-ns
+                                  :ns-path ns-path})
+                       (if current-ns
+                         (swap! global-env update-in ns-path
+                                          (fn [current-ns]
+                                            (assoc current-ns s (eval2 v env))))
+                         (swap! global-env assoc s (eval2 v env)))
                        v)
     (p/defn? s-ex)    (let [[_ fn-name fn-param & body] s-ex
                             lambda (concat '(lambda)
@@ -119,9 +124,13 @@
                             def-lambda (concat '(def)
                                                [fn-name]
                                                [lambda])]
+                        (log/info {:def-lambda def-lambda})
                         (eval2 def-lambda env))
     (p/if? s-ex)     (let [[_ test branch1 branch2] s-ex]
-                       (if test
+                       (log/debug {:test test
+                                   :b1 branch1
+                                   :b2 branch2})
+                       (if (eval2 test env)
                          (eval2 branch1 env)
                          (eval2 branch2 env)))
     (seq? s-ex)      (apply2 s-ex env)
@@ -176,8 +185,8 @@
                                   :catalog (merge (appenders/spit-appender
                                                    {:fname (let [log-dir (or (System/getenv "LOG_DIR") ".")]
                                                              (str  log-dir "/debug.log"))})
-                                                  {:min-level :info
-                                                   :level :info})}}))
+                                                  {:min-level level
+                                                   :level level})}}))
 
 (comment
   (config-log :info)
@@ -186,10 +195,42 @@
   (load-file2 "src/yinyang/fib.clj")
 
   (eval2 '(sq 2) {})
-  (eval2 '(fib 0) {})
+  (eval2 '(fib 7) {})
+  (eval2 '(cube 2) {})
+
+  (eval2 '(defn fib [x]
+            (prn {:x x})
+            (if (= x 0)
+              0
+              (if (= x 1)
+                1
+                (+ (fib (- x 1))
+                   (fib (- x 2)))))) {})
+
+    (eval2 '(defn fib [x]
+              (prn {:x x
+                    := (= x 0)}))
+           {})
+
+    (eval2 '(defn fib [x]
+              (prn {:x x
+                    := (= x 0)})
+              (if (= x 0)
+                2
+                1)) {})
+    (def f (eval2 
+            '(lambda [x]
+                     (prn {:x x, := (= x 0)})
+                     (if (= x 0)
+                       0
+                       1))
+            {}))
+    (f 1)
   (@global-env 'four)
   (eval2 'four {})
   (eval2 '(if false 1 0) {})
+  (eval2 '(fib 0) {})
+
   
   (eval2 '(1 2 3) {}) ;;error
   (eval2 ''(1 2 3) {}) ;;; (1 2 3)
