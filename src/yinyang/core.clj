@@ -194,43 +194,10 @@
   (load-file2 "src/yinyang/fib.clj")
 
   (eval2 '(sq 2) {})
-  (eval2 '(fib 9) {})
   (eval2 '(cube 2) {})
 
-  (eval2 '(defn fib [x]
-            (prn {:x x})
-            (if (= x 0)
-              0
-              (if (= x 1)
-                1
-                (+ (fib (- x 1))
-                   (fib (- x 2)))))) {})
-
-  (eval2 '(defn fib [x]
-            (prn {:x x
-                  := (= x 0)}))
-         {})
-
-  (eval2 '(defn fib [x]
-            (prn {:x x
-                  := (= x 0)})
-            (if (= x 0)
-              2
-              1)) {})
-  (def f (eval2 
-          '(lambda [x]
-                   (prn {:x x, := (= x 0)})
-                   (if (= x 0)
-                     0
-                     1))
-          {}))
-  (f 1)
-  (@global-env 'four)
-  (eval2 'four {})
   (eval2 '(if false 1 0) {})
-  (eval2 '(fib 0) {})
 
-  
   (eval2 '(1 2 3) {}) ;;error
   (eval2 ''(1 2 3) {}) ;;; (1 2 3)
   (eval2 '(+ 2  3) {})
@@ -265,5 +232,5 @@
   
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
-  (eval2 '(def pi 3.141) {})
+
   )

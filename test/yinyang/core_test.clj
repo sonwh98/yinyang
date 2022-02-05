@@ -47,4 +47,17 @@
                     {})]
       (is (= 4 (eval2 '(sq 2) {})))))
 
+  (testing "defn"
+    (let [fib (eval2 '(defn fib [x]
+                        (if (= x 0)
+                          0
+                          (if (= x 1)
+                            1
+                            (+ (fib (- x 1))
+                               (fib (- x 2)))))) {})]
+      (is (fn? fib))
+      (is (= 0 (eval2 '(fib 0) {})))
+      (is (= 1 (eval2 '(fib 1) {})))
+      (is (= 34 (eval2 '(fib 9) {})))))
+
   )
