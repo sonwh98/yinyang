@@ -81,7 +81,6 @@
     (p/do? s-ex)     (let [do-body (rest s-ex)
                            last-ex (last do-body)
                            ex-but-last (drop-last do-body)]
-                       ;;(map #(eval2 % env) ex-but-last)
                        (doseq [ex ex-but-last]
                          (eval2 ex env))
                        (log/debug {:do-body do-body
