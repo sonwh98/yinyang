@@ -81,7 +81,9 @@
     (p/do? s-ex)     (let [do-body (rest s-ex)
                            last-ex (last do-body)
                            ex-but-last (drop-last do-body)]
-                       (map #(eval2 % env) ex-but-last)
+                       ;;(map #(eval2 % env) ex-but-last)
+                       (doseq [ex ex-but-last]
+                         (eval2 ex env))
                        (log/debug {:do-body do-body
                                    :ex-but-last ex-but-last
                                    :last-ex last-ex})
@@ -190,6 +192,7 @@
 (comment
   (config-log :info)
   (config-log :debug)
+  (log/set-level! :info)
   (log/spy :info (* 2 2))
   (load-file2 "src/yinyang/fib.clj")
 
@@ -232,5 +235,14 @@
   
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
+  (type `(+ 1 1))
+
+  (first `(+ 1 1))
+  (type '(+ 1 1))
+  (type `(fn []
+           (list + 1 1)))
+  (type (cons 1 '(2)))
+  (cons '(1) 2)
+  (cons 1 2)
 
   )
