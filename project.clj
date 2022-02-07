@@ -5,6 +5,7 @@
             :url "https://www.eclipse.org/legal/epl-2.0/"}
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [com.taoensso/timbre "5.1.2"]]
+  :plugins [[lein-cljfmt "0.8.0"]]
   :main ^:skip-aot yinyang.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all
