@@ -11,8 +11,7 @@
                        '/ /
                        '- -
                        'prn prn
-                       '= =
-                       }))
+                       '= =}))
 
 (declare eval2)
 
@@ -30,7 +29,7 @@
        3 (f# (nth args# 0)
              (nth args# 1)
              (nth args# 2))
-       
+
        4 (f# (nth args# 0)
              (nth args# 1)
              (nth args# 2)
@@ -65,13 +64,12 @@
                            ns-parts (ns-parts a-ns)
                            ns-val (get-in @global-env ns-parts)]
                        (when-not ns-val
-                         (swap! global-env assoc-in ns-parts {})
-                         )
-                       
+                         (swap! global-env assoc-in ns-parts {}))
+
                        (swap! global-env assoc '*ns* a-ns)
                        (log/debug {:a-ns a-ns
                                    :ns-val ns-val
-                                   :ns-parts ns-parts }))
+                                   :ns-parts ns-parts}))
     (set? s-ex)      (set (map #(eval2 % env) s-ex))
     (vector? s-ex)   (mapv #(eval2 % env) s-ex)
     (map? s-ex)      (into {} (for [[k v] s-ex]
@@ -105,7 +103,7 @@
                                        :s-path s-path
                                        :s-val s-val
                                        :global-env global-env})
-                           
+
                            s-val))
     (p/def? s-ex)    (let [[_ s v] s-ex
                            this-ns (@global-env '*ns*)
@@ -139,9 +137,8 @@
 
                           (log/info {:macro-name macro-name
                                      :params macro-params
-                                     :mac mac})
-                          
-                          )
+                                     :mac mac}))
+
     (seq? s-ex)      (apply2 s-ex env)
     :else            s-ex))
 
@@ -216,18 +213,16 @@
   (eval2 '(+ 2  3 4) {})
   (eval2 '(* 3 (+ 1 2 3)) {})
   (eval2 '(inc 2) {'inc inc})
-  
 
   (eval2 '(lambda [x] (* x x)) {})
   (eval2 '((lambda [x] (* x x)) 4) {'* *})
 
   (eval2 '((lambda [x y]
-                   (* x y)) 5 3 )
+                   (* x y)) 5 3)
          {'* *})
 
-  
   (eval2 '(* x x) {'x 2})
-  
+
   (eval2 '((lambda [x]
                    (* x x)) 2)
          {})
@@ -235,12 +230,11 @@
   (eval2 '(prn {:x1 x}) {'x 3
                          'prn prn})
   (eval2 '(do (* x x)
-              (* 2 x)
-              )
+              (* 2 x))
          {'x 4
           '* *})
   (eval2 '(do 2) {})
-  
+
   (eval2 '{:x x} {'x 1})
   (eval2 '[x] {'x 2})
   (type `(+ 1 1))
@@ -252,5 +246,4 @@
   (type (cons 1 '(2)))
   (cons '(1) 2)
   (cons 1 2)
-  (eval2 '(defmacro infix [s-ex] (bar 1 2 3)) {})
-  )
+  (eval2 '(defmacro infix [s-ex] (bar 1 2 3)) {}))

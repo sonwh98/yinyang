@@ -11,8 +11,7 @@
     (is (= {:name "foo" :age 1}
            (eval2 '{:name "foo" :age 1} {})))
     (is (= #{1 :a "b"}
-           (eval2 '#{1 :a "b"} {})))
-    )
+           (eval2 '#{1 :a "b"} {}))))
 
   (testing "arithmatic expressions"
     (is (= 5 (eval2 '(+ 2  3)
@@ -58,6 +57,4 @@
       (is (fn? fib))
       (is (= 0 (eval2 '(fib 0) {})))
       (is (= 1 (eval2 '(fib 1) {})))
-      (is (= 34 (eval2 '(fib 9) {})))))
-
-  )
+      (is (= 34 (eval2 '(fib 9) {}))))))
