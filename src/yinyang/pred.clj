@@ -28,3 +28,6 @@
 
 (defn if? [s-ex]
   (pred-helper s-ex #(= 'if %)))
+
+(defn defmacro? [s-ex]
+  (pred-helper s-ex #(= 'defmacro %)))

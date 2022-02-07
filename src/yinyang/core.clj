@@ -133,6 +133,15 @@
                        (if (eval2 test env)
                          (eval2 branch1 env)
                          (eval2 branch2 env)))
+    (p/defmacro? s-ex)  (let [[_ macro-name macro-params & macro-body] s-ex
+                              mac (concat '(defn) [macro-name macro-params] macro-body)]
+                          ;;macro-params are not evaluated
+
+                          (log/info {:macro-name macro-name
+                                     :params macro-params
+                                     :mac mac})
+                          
+                          )
     (seq? s-ex)      (apply2 s-ex env)
     :else            s-ex))
 
@@ -243,5 +252,5 @@
   (type (cons 1 '(2)))
   (cons '(1) 2)
   (cons 1 2)
-
+  (eval2 '(defmacro infix [s-ex] (bar 1 2 3)) {})
   )
