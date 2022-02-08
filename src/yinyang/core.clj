@@ -45,6 +45,23 @@
               :env env
               :global-env @global-env})
   (cond
+    (symbol? s-ex)     (or (env s-ex)
+                           (let [current-ns (@global-env '*ns*)
+                                 ns-path (ns-parts current-ns)
+                                 s-path (conj ns-path s-ex)
+                                 s-val (or (get-in @global-env s-path)
+                                           (get-in @global-env [s-ex]))]
+                             (log/debug {:ns-path ns-path
+                                         :s-path s-path
+                                         :s-val s-val
+                                         :global-env global-env})
+
+                             s-val))
+    (set? s-ex)        (set (map #(eval2 % env) s-ex))
+    (vector? s-ex)     (mapv #(eval2 % env) s-ex)
+    (map? s-ex)        (into {} (for [[k v] s-ex]
+                                  [(eval2 k env)
+                                   (eval2 v env)]))
     (p/lambda? s-ex)   (let [params (second s-ex)
                              body (drop 2 s-ex)
                              body (conj body 'do)]
@@ -60,21 +77,6 @@
                                              (let [pairs (mapv vec (partition 2 (interleave params args)))
                                                    env2 (into {} pairs)]
                                                (env2 a-symbol))))))))
-    (p/ns? s-ex)       (let [a-ns (second s-ex)
-                             ns-parts (ns-parts a-ns)
-                             ns-val (get-in @global-env ns-parts)]
-                         (when-not ns-val
-                           (swap! global-env assoc-in ns-parts {}))
-
-                         (swap! global-env assoc '*ns* a-ns)
-                         (log/debug {:a-ns a-ns
-                                     :ns-val ns-val
-                                     :ns-parts ns-parts}))
-    (set? s-ex)        (set (map #(eval2 % env) s-ex))
-    (vector? s-ex)     (mapv #(eval2 % env) s-ex)
-    (map? s-ex)        (into {} (for [[k v] s-ex]
-                                  [(eval2 k env)
-                                   (eval2 v env)]))
     (p/quote? s-ex)    (first (rest s-ex))
     (p/do? s-ex)       (let [do-body (rest s-ex)
                              last-ex (last do-body)
@@ -93,18 +95,15 @@
                          (log/debug {:bindings bindings
                                      :do implicit-do})
                          (eval2 implicit-do (merge env env2)))
-    (symbol? s-ex)     (or (env s-ex)
-                           (let [current-ns (@global-env '*ns*)
-                                 ns-path (ns-parts current-ns)
-                                 s-path (conj ns-path s-ex)
-                                 s-val (or (get-in @global-env s-path)
-                                           (get-in @global-env [s-ex]))]
-                             (log/debug {:ns-path ns-path
-                                         :s-path s-path
-                                         :s-val s-val
-                                         :global-env global-env})
-
-                             s-val))
+    (p/defn? s-ex)     (let [[_ fn-name fn-param & body] s-ex
+                             lambda (concat '(lambda)
+                                            [fn-param]
+                                            body)
+                             def-lambda (concat '(def)
+                                                [fn-name]
+                                                [lambda])]
+                         (log/debug {:def-lambda def-lambda})
+                         (eval2 def-lambda env))
     (p/def? s-ex)      (let [[_ s v] s-ex
                              this-ns (@global-env '*ns*)
                              v (eval2 v env)]
@@ -115,15 +114,7 @@
                                       (assoc current-ns s v))))
                            (swap! global-env assoc s v))
                          v)
-    (p/defn? s-ex)     (let [[_ fn-name fn-param & body] s-ex
-                             lambda (concat '(lambda)
-                                            [fn-param]
-                                            body)
-                             def-lambda (concat '(def)
-                                                [fn-name]
-                                                [lambda])]
-                         (log/debug {:def-lambda def-lambda})
-                         (eval2 def-lambda env))
+
     (p/if? s-ex)       (let [[_ test branch1 branch2] s-ex]
                          (log/debug {:test test
                                      :b1 branch1
@@ -138,6 +129,16 @@
                          (log/info {:macro-name macro-name
                                     :params macro-params
                                     :mac mac}))
+    (p/ns? s-ex)       (let [a-ns (second s-ex)
+                             ns-parts (ns-parts a-ns)
+                             ns-val (get-in @global-env ns-parts)]
+                         (when-not ns-val
+                           (swap! global-env assoc-in ns-parts {}))
+
+                         (swap! global-env assoc '*ns* a-ns)
+                         (log/debug {:a-ns a-ns
+                                     :ns-val ns-val
+                                     :ns-parts ns-parts}))
     (seq? s-ex)        (apply2 s-ex env)
     :else              s-ex))
 
