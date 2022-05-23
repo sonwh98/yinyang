@@ -1,5 +1,5 @@
 (ns yinyang.core
-  (:require [clojure.pprint :as pp]
+  (:require [clojure.pprint :as pp :refer :all]
             [clojure.string :as string]
             [taoensso.timbre :as log]
             [taoensso.timbre.appenders.core :as appenders]
@@ -194,6 +194,22 @@
                                                   {:min-level level
                                                    :level level})}}))
 
+(defn clj->wat [forms]
+  (mapv (fn [form]
+          (cond
+            (p/defn? form) (let [f-name# (symbol (str "$" (nth form 1)))
+                                 params# (nth form 2)
+                                 params# (map (fn [p]
+                                                (concat '(param) [(symbol (str "$" p))] ['i32])
+                                                )
+
+                                              params#)]
+                             (concat '(func) `( ~f-name# ~@params#))
+                             )
+            )
+          )forms)
+  )
+
 (comment
   (config-log :info)
   (config-log :debug)
@@ -246,4 +262,9 @@
   (type (cons 1 '(2)))
   (cons '(1) 2)
   (cons 1 2)
-  (eval2 '(defmacro infix [s-ex] (bar 1 2 3)) {}))
+  (eval2 '(defmacro infix [s-ex] (bar 1 2 3)) {})
+  (def forms (-> "example/math.clj" slurp text->forms))
+  (pprint (clj->wat forms))
+
+
+  )
