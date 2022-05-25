@@ -195,27 +195,27 @@
                                                    :level level})}}))
 
 (defn clj->wat [forms]
-  (first (mapv (fn [form]
-                 (cond
-                   (p/defn? form) (let [f-name# (nth form 1)
-                                        f-name-meta# (meta f-name#)
-                                        $f-name# (str "$" f-name#)
-                                        $f-name-sym# (symbol $f-name#)
-                                        params# (nth form 2)
-                                        params# (map (fn [p]
-                                                       (concat '(param) [(symbol (str "$" p))] ['i32])
-                                                       )
+  (mapcat (fn [form]
+            (cond
+              (p/defn? form) (let [f-name# (nth form 1)
+                                   f-name-meta# (meta f-name#)
+                                   $f-name# (str "$" f-name#)
+                                   $f-name-sym# (symbol $f-name#)
+                                   params# (nth form 2)
+                                   params# (map (fn [p]
+                                                  (concat '(param) [(symbol (str "$" p))] ['i32])
+                                                  )
 
-                                                     params#)
-                                        exports (if f-name-meta#
-                                                  (concat ['export (str f-name#)]
-                                                          [(list 'func $f-name-sym#)]))]
-                                    (remove nil? (list 'module (concat '(func)
-                                                                       `( ~$f-name-sym# ~@params#))
-                                                       exports))
-                                    )
-                   )
-                 )forms))
+                                                params#)
+                                   exports (if f-name-meta#
+                                             (concat ['export (str f-name#)]
+                                                     [(list 'func $f-name-sym#)]))]
+                               (remove nil? (list (concat '(func)
+                                                          `( ~$f-name-sym# ~@params#))
+                                                  exports))
+                               )
+              )
+            )forms)
   )
 
 (comment
@@ -292,5 +292,11 @@
     (export "add" (func "$add"))
     )
    ]
+
+  [
+   ((func $add (param $a i32) (param $b i32))
+    (export "add" (func $add)))
+   
+   ((func $inc (param $a i32)))]
   
   )
