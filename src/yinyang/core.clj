@@ -199,6 +199,7 @@
             (cond
               (p/defn? form) (let [f-name# (nth form 1)
                                    f-name-meta# (meta f-name#)
+                                   _ (prn :meta f-name-meta#)
                                    $f-name# (str "$" f-name#)
                                    $f-name-sym# (symbol $f-name#)
                                    params# (nth form 2)
@@ -207,7 +208,7 @@
                                                 params#)
                                    body (drop 3 form)
                                    _ (prn "body" body)
-                                   exports (if f-name-meta#
+                                   exports (if (:export f-name-meta#)
                                              (concat ['export (str f-name#)]
                                                      [(list 'func $f-name-sym#)]))]
                                (remove nil? (list (concat '(func)
@@ -217,7 +218,7 @@
                                                   exports))
                                )
               )
-            )forms)
+            ) forms)
   )
 
 (comment
@@ -282,7 +283,7 @@
   (def foo (read-string "#^String x"))
   (def foo (read-string "(defn #^String x)"))
   (def foo (read-string "(defn #^:export x)"))
-  (def foo (read-string "(defn ^:export add [a b] (+ a b))"))
+  (def foo (read-string "(defn ^:export ^Integer ^String ^:bar add [a b] (+ a b))"))
   (-> foo (nth 1) meta)
 
   (into ['(1 2 3)] [[4]])
@@ -300,5 +301,10 @@
     (export "add" (func $add)))
    
    ((func $inc (param $a i32)))]
-  
+
+  (defn ^:export ^Integer add [^String a ^String b]
+    1)
+
+  (defn ^Integer ^:export  add [^String a ^String b]
+    1)
   )
