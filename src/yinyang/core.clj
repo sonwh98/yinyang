@@ -203,15 +203,17 @@
                                    $f-name-sym# (symbol $f-name#)
                                    params# (nth form 2)
                                    params# (map (fn [p]
-                                                  (concat '(param) [(symbol (str "$" p))] ['i32])
-                                                  )
-
+                                                  (concat '(param) [(symbol (str "$" p))] ['i32]))
                                                 params#)
+                                   body (drop 3 form)
+                                   _ (prn "body" body)
                                    exports (if f-name-meta#
                                              (concat ['export (str f-name#)]
                                                      [(list 'func $f-name-sym#)]))]
                                (remove nil? (list (concat '(func)
-                                                          `( ~$f-name-sym# ~@params#))
+                                                          `( ~$f-name-sym# ~@params#)
+                                                          '((result i32))
+                                                          body)
                                                   exports))
                                )
               )
