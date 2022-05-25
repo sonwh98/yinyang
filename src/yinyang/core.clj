@@ -195,19 +195,27 @@
                                                    :level level})}}))
 
 (defn clj->wat [forms]
-  (mapv (fn [form]
-          (cond
-            (p/defn? form) (let [f-name# (symbol (str "$" (nth form 1)))
-                                 params# (nth form 2)
-                                 params# (map (fn [p]
-                                                (concat '(param) [(symbol (str "$" p))] ['i32])
-                                                )
+  (first (mapv (fn [form]
+                 (cond
+                   (p/defn? form) (let [f-name# (nth form 1)
+                                        f-name-meta# (meta f-name#)
+                                        $f-name# (str "$" f-name#)
+                                        $f-name-sym# (symbol $f-name#)
+                                        params# (nth form 2)
+                                        params# (map (fn [p]
+                                                       (concat '(param) [(symbol (str "$" p))] ['i32])
+                                                       )
 
-                                              params#)]
-                             (concat '(func) `( ~f-name# ~@params#))
-                             )
-            )
-          )forms)
+                                                     params#)
+                                        exports (if f-name-meta#
+                                                  (concat ['export (str f-name#)]
+                                                          [(list 'func $f-name-sym#)]))]
+                                    (remove nil? (list 'module (concat '(func)
+                                                                       `( ~$f-name-sym# ~@params#))
+                                                       exports))
+                                    )
+                   )
+                 )forms))
   )
 
 (comment
@@ -264,7 +272,25 @@
   (cons 1 2)
   (eval2 '(defmacro infix [s-ex] (bar 1 2 3)) {})
   (def forms (-> "example/math.clj" slurp text->forms))
-  (pprint (clj->wat forms))
+  (def w (clj->wat forms))
+  (pprint w)
+  (-> w first (nth 2) meta)
+  (read-string "(defn  ^:export 1)")
+  (clojure.edn/read-string "(1 #^ )")
+  (def foo (read-string "#^String x"))
+  (def foo (read-string "(defn #^String x)"))
+  (def foo (read-string "(defn #^:export x)"))
+  (def foo (read-string "(defn ^:export add [a b] (+ a b))"))
+  (-> foo (nth 1) meta)
 
+  (into ['(1 2 3)] [[4]])
 
+  [
+   (
+    (func $add (param $a i32) (param $b i32))
+    
+    (export "add" (func "$add"))
+    )
+   ]
+  
   )
