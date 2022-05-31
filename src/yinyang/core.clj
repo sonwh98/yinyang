@@ -210,10 +210,11 @@
                                    _ (prn "body" body)
                                    exports (if (:export f-name-meta#)
                                              (concat ['export (str f-name#)]
-                                                     [(list 'func $f-name-sym#)]))]
+                                                     [(list 'func $f-name-sym#)]))
+                                   result (concat '(result) [(or (:tag f-name-meta#) 'i32)])]
                                (remove nil? (list (concat '(func)
                                                           `( ~$f-name-sym# ~@params#)
-                                                          '((result i32))
+                                                          [result]
                                                           body)
                                                   exports))
                                )
