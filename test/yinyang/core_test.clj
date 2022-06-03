@@ -57,4 +57,13 @@
       (is (fn? fib))
       (is (= 0 (eval2 '(fib 0) {})))
       (is (= 1 (eval2 '(fib 1) {})))
-      (is (= 34 (eval2 '(fib 9) {}))))))
+      (is (= 34 (eval2 '(fib 9) {})))))
+
+  (testing "text->forms"
+    (let [sexp "(+ 1 1)"
+          comment "#_(+ 1 1)"]
+      (is (= '{:forms [(+ 1 1)], :reader-macro-forms [(+ 1 1)]}
+             (text->forms (str sexp "\n" comment))))
+      )
+    )
+  )
