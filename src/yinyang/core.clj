@@ -145,36 +145,74 @@
 (defn text->forms
   "parse text into clojure s-expressions. returns a vector of clojure s-expression forms"
   [txt]
-  (loop [char-seq (seq txt)
+  (loop [char-seq (let [char-seq (seq txt)
+                        last-char (last char-seq)]
+                    (if (= last-char \n)
+                      char-seq
+                      (concat char-seq [\n])))
          level 0
          buffer nil
-         forms []]
+         forms []
+         reader-macro-forms []
+         reader-macro? false]
     (let [c (first char-seq)]
       (cond
+        (= c \#)            (let [next-c (second char-seq)]
+                              (if (= next-c \_)
+                                (recur (drop 2 char-seq)
+                                       level
+                                       buffer
+                                       forms
+                                       reader-macro-forms
+                                       true)
+                                (recur (rest char-seq)
+                                       level
+                                       buffer
+                                       forms
+                                       reader-macro-forms
+                                       true)))
+        
         (= c \()            (recur (rest char-seq)
                                    (inc level)
                                    (str buffer c)
-                                   forms)
+                                   forms
+                                   reader-macro-forms
+                                   reader-macro?)
         (= c \))            (recur (rest char-seq)
                                    (dec level)
                                    (str buffer c)
-                                   forms)
-        (nil? c)            forms
+                                   forms
+                                   reader-macro-forms
+                                   reader-macro?)
+        (nil? c)            {:forms forms :reader-macro-forms reader-macro-forms}
         (and (zero? level)
              (nil? buffer)) (recur (rest char-seq)
                                    level
                                    buffer
-                                   forms)
+                                   forms
+                                   reader-macro-forms
+                                   reader-macro?)
         (zero? level)       (let [form (read-string buffer)]
-                              (recur (rest char-seq)
-                                     level
-                                     nil
-                                     (conj forms form)))
+                              (if reader-macro?
+                                (recur (rest char-seq)
+                                       level
+                                       nil
+                                       forms 
+                                       (conj  reader-macro-forms form)
+                                       false)
+                                (recur (rest char-seq)
+                                       level
+                                       nil
+                                       (conj forms form)
+                                       reader-macro-forms
+                                       reader-macro?)))
 
         :else               (recur (rest char-seq)
                                    level
                                    (str buffer c)
-                                   forms)))))
+                                   forms
+                                   reader-macro-forms
+                                   reader-macro?)))))
 (defn load-file2 [file-name]
   (let [forms (-> file-name slurp text->forms)]
     (doseq [f forms]
@@ -276,6 +314,11 @@
   (cons 1 2)
   (eval2 '(defmacro infix [s-ex] (bar 1 2 3)) {})
   (def forms (-> "example/math.clj" slurp text->forms))
+  (def forms (-> "example/sex.clj" slurp text->forms))
+  (def forms (-> "(+ 1 1)" text->forms))
+
+  (slurp "example/sex.clj")
+  
   (def w (clj->wat forms))
   (pprint w)
   (-> w first (nth 2) meta)
