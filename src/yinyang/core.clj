@@ -145,74 +145,67 @@
 (defn text->forms
   "parse text into clojure s-expressions. returns a vector of clojure s-expression forms"
   [txt]
-  (loop [char-seq (let [char-seq (seq txt)
-                        last-char (last char-seq)]
-                    (if (= last-char \n)
-                      char-seq
-                      (concat char-seq [\n])))
+  (loop [char-seq  (seq txt) #_(let [char-seq (seq txt)
+                             last-char (last char-seq)]
+                         (if (= last-char \n)
+                           char-seq
+                           (concat char-seq [\n])))
          level 0
          buffer nil
-         forms []
-         reader-macro-forms []
-         reader-macro? false]
+         forms []]
     (let [c (first char-seq)]
+      (log/info {:txt txt
+                 :char-seq char-seq
+                 :c c
+                 :level level
+                 :buffer buffer
+                 :forms forms})
       (cond
         (= c \#)            (let [next-c (second char-seq)]
+                              (log/info :next-c next-c)
                               (if (= next-c \_)
-                                (recur (drop 2 char-seq)
-                                       level
-                                       buffer
-                                       forms
-                                       reader-macro-forms
-                                       true)
+                                (let [foo (drop 2 char-seq)
+                                      _ (log/info :foo foo)
+                                      foo2 (concat (seq "(comment ")
+                                                   foo
+                                                   (seq ")"))
+                                      _ (log/info :foo2 foo2)
+                                      foo3 (text->forms foo2)]
+
+                                  (into forms foo3))
                                 (recur (rest char-seq)
                                        level
                                        buffer
                                        forms
-                                       reader-macro-forms
-                                       true)))
+                                       )))
         
         (= c \()            (recur (rest char-seq)
                                    (inc level)
                                    (str buffer c)
-                                   forms
-                                   reader-macro-forms
-                                   reader-macro?)
+                                   forms)
         (= c \))            (recur (rest char-seq)
                                    (dec level)
                                    (str buffer c)
-                                   forms
-                                   reader-macro-forms
-                                   reader-macro?)
-        (nil? c)            {:forms forms :reader-macro-forms reader-macro-forms}
+                                   forms)
+        (nil? c)        (conj forms (read-string buffer))
         (and (zero? level)
              (nil? buffer)) (recur (rest char-seq)
                                    level
                                    buffer
                                    forms
-                                   reader-macro-forms
-                                   reader-macro?)
+                                   )
         (zero? level)       (let [form (read-string buffer)]
-                              (if reader-macro?
-                                (recur (rest char-seq)
-                                       level
-                                       nil
-                                       forms 
-                                       (conj  reader-macro-forms form)
-                                       false)
-                                (recur (rest char-seq)
+                              (recur (rest char-seq)
                                        level
                                        nil
                                        (conj forms form)
-                                       reader-macro-forms
-                                       reader-macro?)))
+                                       ))
 
         :else               (recur (rest char-seq)
                                    level
                                    (str buffer c)
                                    forms
-                                   reader-macro-forms
-                                   reader-macro?)))))
+                                   )))))
 (defn load-file2 [file-name]
   (let [forms (-> file-name slurp text->forms)]
     (doseq [f forms]
@@ -316,10 +309,12 @@
   (def forms (-> "example/math.clj" slurp text->forms))
   (def forms (-> "example/sex.clj" slurp text->forms))
   (def forms (-> "(+ 1 1)" text->forms))
-
-  (slurp "example/sex.clj")
+  (concat (seq "(comment ") (seq "+ 1 2)"))
+  (def forms (text->forms "(+ 1 1) #_(+ 1)"))
+  (text->forms "(comment (comment (+ 1)))")
+  (text->forms "(comment (+ 1))")
   
-  (def w (clj->wat forms))
+  (def w (clj->wat (:forms forms)))
   (pprint w)
   (-> w first (nth 2) meta)
   (read-string "(defn  ^:export 1)")
