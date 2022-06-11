@@ -152,7 +152,8 @@
                            (concat char-seq [\n])))
          level 0
          buffer nil
-         forms []]
+         forms []
+         reader-macro? false]
     (let [c (first char-seq)]
       (log/info {:txt txt
                  :char-seq char-seq
@@ -177,35 +178,37 @@
                                        level
                                        buffer
                                        forms
-                                       )))
+                                       reader-macro?)))
         
         (= c \()            (recur (rest char-seq)
                                    (inc level)
                                    (str buffer c)
-                                   forms)
+                                   forms
+                                   reader-macro?)
         (= c \))            (recur (rest char-seq)
                                    (dec level)
                                    (str buffer c)
-                                   forms)
+                                   forms
+                                   reader-macro?)
         (nil? c)        (conj forms (read-string buffer))
         (and (zero? level)
              (nil? buffer)) (recur (rest char-seq)
                                    level
                                    buffer
                                    forms
-                                   )
+                                   reader-macro?)
         (zero? level)       (let [form (read-string buffer)]
                               (recur (rest char-seq)
                                        level
                                        nil
                                        (conj forms form)
-                                       ))
+                                       reader-macro?))
 
         :else               (recur (rest char-seq)
                                    level
                                    (str buffer c)
                                    forms
-                                   )))))
+                                   reader-macro?)))))
 (defn load-file2 [file-name]
   (let [forms (-> file-name slurp text->forms)]
     (doseq [f forms]
