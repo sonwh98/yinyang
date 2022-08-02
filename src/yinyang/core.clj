@@ -125,16 +125,10 @@
                            (eval2 branch1 env)
                            (eval2 branch2 env)))
     (p/defmacro? s-ex) (let [[_ macro-name macro-params & macro-body] s-ex
-                             l (concat '(lambda) [ macro-params] macro-body)
-                             _ (log/info {:lambda l})
+                             l (concat '(lambda) [macro-params] macro-body)
                              l (with-meta (eval2 l env) {:macro true})
-                             _ (log/info {:lambda2 l})
                              l (concat '(def) [macro-name l] )]
-                         _ (log/info {:lambda3 l})
-                         ;;macro-params are not evaluated
-
-                         (eval2 l env)
-                         )
+                         (eval2 l env))
     (p/ns? s-ex)       (let [a-ns (second s-ex)
                              ns-parts (ns-parts a-ns)
                              ns-val (get-in @global-env ns-parts)]
