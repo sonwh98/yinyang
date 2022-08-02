@@ -76,9 +76,8 @@
       (is (fn? mac))
       (is (= true
              (-> mac meta :macro)))
-      (is (-> (@global-env 'infix)
-              nil?
-              not))
+      (is (= mac 
+             (@global-env 'infix)))
       (is  (= 5
               (eval2 '(infix (2 + 3)) {})))))
   )
