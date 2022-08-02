@@ -142,15 +142,13 @@
     (seq? s-ex)        (let [f (first s-ex)
                              f-val (eval2 f env)
                              f-val-meta (meta f-val)
-                             macro? (:macro f-val-meta)
-                             s-ex (if macro?
-                                    (let [param (rest s-ex)
-                                          param (concat '(quote) param)]
-                                      (concat '() [f]  (list param)))
-                                    s-ex)]
+                             macro? (:macro f-val-meta)]
                          (if macro?
-                           (let [s-ex (apply2 s-ex env)]
-                             (eval2 s-ex env))
+                           (let [param (rest s-ex)
+                                 quoted-param (concat '(quote) param)
+                                 s-ex-with-quoted-param (list f quoted-param)
+                                 expanded-s-ex (apply2 s-ex-with-quoted-param env)]
+                             (eval2 expanded-s-ex env))
                            (apply2 s-ex env)))
     :else              s-ex))
 
