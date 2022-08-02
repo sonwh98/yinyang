@@ -24,13 +24,6 @@
          f# (first s-ex#)
          args# (rest s-ex#)
          args-count# (count args#)]
-     (log/info {:foobar f#
-                :s-ex ~s-ex
-                :apply2-s-ex s-ex#})
-     (log/info {:f (if f#
-                     (meta f#))
-                :apply2-s-ex s-ex#
-                :apply2-args args#})
      (case args-count#
        1 (f# (nth args# 0))
        2 (f# (nth args# 0)
@@ -158,15 +151,9 @@
                              macro? (:macro f-val-meta)
                              s-ex (if macro?
                                     (let [param (rest s-ex)
-                                          _ (log/info {:param1 param})
-                                          param (concat '(quote) param)
-                                          _ (log/info {:param2 param})]
-                                      (concat '() [f]  (list param)) )
+                                          param (concat '(quote) param)]
+                                      (concat '() [f]  (list param)))
                                     s-ex)]
-                         (log/info {:f f
-                                    :f-val f-val
-                                    :f-val-meta (meta f-val)
-                                    :s-ex s-ex})
                          (if macro?
                            (let [s-ex2 (apply2 s-ex env)]
                              (eval2 s-ex2 env))

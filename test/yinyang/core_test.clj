@@ -1,6 +1,9 @@
 (ns yinyang.core-test
   (:require [clojure.test :refer :all]
+            [taoensso.timbre :as log]
             [yinyang.core :refer :all]))
+
+(log/set-level! :info)
 
 (deftest a-test
   (testing "eval data structures"
