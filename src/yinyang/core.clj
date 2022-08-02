@@ -11,7 +11,11 @@
                        '/ /
                        '- -
                        'prn prn
-                       '= =}))
+                       '= =
+                       'first first
+                       'second second
+                       'last last
+                       'list list}))
 
 (declare eval2)
 
@@ -20,8 +24,13 @@
          f# (first s-ex#)
          args# (rest s-ex#)
          args-count# (count args#)]
-     (log/debug {:apply2-s-ex s-ex#
-                 :apply2-args args#})
+     (log/info {:foobar f#
+                :s-ex ~s-ex
+                :apply2-s-ex s-ex#})
+     (log/info {:f (if f#
+                     (meta f#))
+                :apply2-s-ex s-ex#
+                :apply2-args args#})
      (case args-count#
        1 (f# (nth args# 0))
        2 (f# (nth args# 0)
@@ -123,12 +132,16 @@
                            (eval2 branch1 env)
                            (eval2 branch2 env)))
     (p/defmacro? s-ex) (let [[_ macro-name macro-params & macro-body] s-ex
-                             mac (concat '(defn) [macro-name macro-params] macro-body)]
+                             l (concat '(lambda) [ macro-params] macro-body)
+                             _ (log/info {:lambda l})
+                             l (with-meta (eval2 l env) {:macro true})
+                             _ (log/info {:lambda2 l})
+                             l (concat '(def) [macro-name l] )]
+                         _ (log/info {:lambda3 l})
                          ;;macro-params are not evaluated
 
-                         (log/info {:macro-name macro-name
-                                    :params macro-params
-                                    :mac mac}))
+                         (eval2 l env)
+                         )
     (p/ns? s-ex)       (let [a-ns (second s-ex)
                              ns-parts (ns-parts a-ns)
                              ns-val (get-in @global-env ns-parts)]
@@ -139,7 +152,25 @@
                          (log/debug {:a-ns a-ns
                                      :ns-val ns-val
                                      :ns-parts ns-parts}))
-    (seq? s-ex)        (apply2 s-ex env)
+    (seq? s-ex)        (let [f (first s-ex)
+                             f-val (eval2 f env)
+                             f-val-meta (meta f-val)
+                             macro? (:macro f-val-meta)
+                             s-ex (if macro?
+                                    (let [param (rest s-ex)
+                                          _ (log/info {:param1 param})
+                                          param (concat '(quote) param)
+                                          _ (log/info {:param2 param})]
+                                      (concat '() [f]  (list param)) )
+                                    s-ex)]
+                         (log/info {:f f
+                                    :f-val f-val
+                                    :f-val-meta (meta f-val)
+                                    :s-ex s-ex})
+                         (if macro?
+                           (let [s-ex2 (apply2 s-ex env)]
+                             (eval2 s-ex2 env))
+                           (apply2 s-ex env)))
     :else              s-ex))
 
 (defn text->forms
@@ -162,23 +193,11 @@
                  :buffer buffer
                  :forms forms})
       (cond
-        (= c \#)            (let [next-c (second char-seq)]
-                              (log/info :next-c next-c)
-                              (if (= next-c \_)
-                                (let [foo (drop 2 char-seq)
-                                      _ (log/info :foo foo)
-                                      foo2 (concat (seq "(comment ")
-                                                   foo
-                                                   (seq ")"))
-                                      _ (log/info :foo2 foo2)
-                                      foo3 (text->forms foo2)]
-
-                                  (into forms foo3))
-                                (recur (rest char-seq)
-                                       level
-                                       buffer
-                                       forms
-                                       reader-macro?)))
+        (= c \#)            (recur (rest char-seq)
+                                   level
+                                   buffer
+                                   forms
+                                   true)
         
         (= c \()            (recur (rest char-seq)
                                    (inc level)
@@ -311,6 +330,7 @@
   (eval2 '(defmacro infix [s-ex] (bar 1 2 3)) {})
   (def forms (-> "example/math.clj" slurp text->forms))
   (def forms (-> "example/sex.clj" slurp text->forms))
+
   (def forms (-> "(+ 1 1)" text->forms))
   (concat (seq "(comment ") (seq "+ 1 2)"))
   (def forms (text->forms "(+ 1 1) #_(+ 1)"))

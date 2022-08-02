@@ -59,11 +59,17 @@
       (is (= 1 (eval2 '(fib 1) {})))
       (is (= 34 (eval2 '(fib 9) {})))))
 
-  (testing "text->forms"
+  #_(testing "text->forms"
     (let [sexp "(+ 1 1)"
           comment "#_(+ 1 1)"]
       (is (= '{:forms [(+ 1 1)], :reader-macro-forms [(+ 1 1)]}
-             (text->forms (str sexp "\n" comment))))
-      )
-    )
+             (text->forms (str sexp "\n" comment))))))
+  
+  (testing "defmacro"
+    (let [dm '(defmacro infix
+                 [infixed]
+                (list (second infixed) (first infixed) (last infixed)))]
+      (is (fn? (eval2 dm {})))
+      (is  (= 5
+              (eval2 '(infix (2 + 3)) {})))))
   )
