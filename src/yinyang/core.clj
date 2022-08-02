@@ -149,8 +149,8 @@
                                       (concat '() [f]  (list param)))
                                     s-ex)]
                          (if macro?
-                           (let [s-ex2 (apply2 s-ex env)]
-                             (eval2 s-ex2 env))
+                           (let [s-ex (apply2 s-ex env)]
+                             (eval2 s-ex env))
                            (apply2 s-ex env)))
     :else              s-ex))
 
