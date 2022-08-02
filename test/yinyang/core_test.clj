@@ -71,8 +71,14 @@
   (testing "defmacro"
     (let [dm '(defmacro infix
                  [infixed]
-                (list (second infixed) (first infixed) (last infixed)))]
-      (is (fn? (eval2 dm {})))
+                (list (second infixed) (first infixed) (last infixed)))
+          mac (eval2 dm {})]
+      (is (fn? mac))
+      (is (= true
+             (-> mac meta :macro)))
+      (is (-> (@global-env 'infix)
+              nil?
+              not))
       (is  (= 5
               (eval2 '(infix (2 + 3)) {})))))
   )
