@@ -7,26 +7,34 @@ fn vec_char_to_string(v: &Vec<char>) -> String {
     v.into_iter().collect()
 }
 
-fn parse(input: &str) -> Vec<char> {
-    let mut chars = input.chars();
-    let mut stack = Vec::<char>::new();
+fn helper(stack: &mut Vec<char>, chars: &mut std::str::Chars)-> Vec<char> {
     loop {
         match chars.next() {
-	    Some('(') => {
-		stack.push('(');
-		println!("start sex");
-	    },
-	    Some(')') => {
-		stack.push(')');
-		let sexpression = vec_char_to_string(&stack);
-		print_type_of(&sexpression);
-		println!("end sex {:?}", sexpression);
-	    },
-            Some(c) => stack.push(c),
+            Some('(') => {
+		let mut new_stack = Vec::<char>::new();
+                new_stack.push('(');
+                println!("start sex {:?}", new_stack);
+		helper(&mut new_stack, chars);
+            }
+            Some(')') => {
+                stack.push(')');
+                let sexpression = vec_char_to_string(&stack);
+		println!("end stack {:?}", stack);
+                println!("end sex {:?}", sexpression);
+            }
+            Some(c) => {
+		stack.push(c);
+		println!("stack ={:?}", stack);
+	    }
+	    ,
             None => break,
         }
     }
-    
+}
+
+fn parse(input: &str) -> Vec<char> {
+    let mut stack = Vec::<char>::new();
+    helper(&mut stack, &mut input.chars());
     return stack;
 }
 
