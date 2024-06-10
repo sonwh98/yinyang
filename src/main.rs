@@ -3,28 +3,12 @@ use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, PartialEq, Eq, Hash)]
-enum Integer {
-    I32(i32),
-    I64(i64),
-}
-
-impl Integer {
-    fn new(value: i64) -> Self {
-        if value > i32::MAX as i64 || value < i32::MIN as i64 {
-            Integer::I64(value)
-        } else {
-            Integer::I32(value as i32)
-        }
-    }
-}
-
 #[derive(Debug)]
 #[allow(dead_code)]
 enum EDN {
     Nil,
     Bool(bool),
-    Integer(Integer),
+    Integer(BigInt),
     Float(f64),
     String(String),
     Symbol(String),
@@ -119,7 +103,7 @@ fn print_type_of<T>(_: &T) {
 #[allow(dead_code)]
 #[allow(unused)]
 fn main() {
-    let i = Integer::new(2147483);
+    let i = BigInt::from(2147483);
     println!("i={:?}", i);
 
     // EDN Nil example
@@ -129,7 +113,7 @@ fn main() {
     let bool_example = EDN::Bool(true);
 
     // EDN Integer example
-    let int_example = EDN::Integer(Integer::new(10));
+    let int_example = EDN::Integer(BigInt::from(10));
 
     // EDN Float example
     let float_example = EDN::Float(3.14);
@@ -145,9 +129,9 @@ fn main() {
 
     // EDN List example
     let list_example = EDN::List(vec![
-        EDN::Integer(Integer::new(1)),
-        EDN::Integer(Integer::new(2)),
-        EDN::Integer(Integer::new(2147483648)),
+        EDN::Integer(BigInt::from(1)),
+        EDN::Integer(BigInt::from(2)),
+        EDN::Integer(BigInt::from(2147483648i64)),
     ]);
 
     // EDN Vector example
@@ -163,8 +147,8 @@ fn main() {
 
     // EDN Set example
     let mut set = HashSet::new();
-    set.insert(EDN::Integer(Integer::new(1)));
-    set.insert(EDN::Integer(Integer::new(2)));
+    set.insert(EDN::Integer(BigInt::from(1)));
+    set.insert(EDN::Integer(BigInt::from(2)));
     let set_example = EDN::Set(set);
 
     // Printing examples
