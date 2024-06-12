@@ -1,11 +1,12 @@
 use bigdecimal::BigDecimal;
-use bigdecimal::FromPrimitive;
+use regex::Regex;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::hash::{Hash, Hasher};
-//use std::str::FromStr;
+use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum EDN {
     Nil,
     Bool(bool),
@@ -94,72 +95,165 @@ impl Hash for EDN {
     }
 }
 
-#[allow(dead_code)]
-fn print_type_of<T>(_: &T) {
-    println!("{}", std::any::type_name::<T>());
+impl fmt::Display for EDN {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EDN::Nil => write!(f, "nil"),
+            EDN::Bool(b) => write!(f, "{}", b),
+            EDN::Integer(i) => write!(f, "{}", i),
+            EDN::Float(dec) => write!(f, "{}", dec),
+            EDN::String(s) => write!(f, "\"{}\"", s),
+            EDN::Symbol(sym) => write!(f, "{}", sym),
+            EDN::Keyword(kw) => write!(f, "{}", kw),
+            EDN::List(list) => {
+                write!(f, "(")?;
+                for (i, item) in list.iter().enumerate() {
+                    write!(f, "{}", item)?;
+                    if i < list.len() - 1 {
+                        write!(f, " ")?;
+                    }
+                }
+                write!(f, ")")
+            }
+            EDN::Vector(vec) => {
+                write!(f, "[")?;
+                for (i, item) in vec.iter().enumerate() {
+                    write!(f, "{}", item)?;
+                    if i < vec.len() - 1 {
+                        write!(f, " ")?;
+                    }
+                }
+                write!(f, "]")
+            }
+            EDN::Map(map) => {
+                write!(f, "{{")?;
+                for (i, (k, v)) in map.iter().enumerate() {
+                    write!(f, "{} {}", k, v)?;
+                    if i < map.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, "}}")
+            }
+            EDN::Set(set) => {
+                write!(f, "#{{")?;
+                for (i, item) in set.iter().enumerate() {
+                    write!(f, "{}", item)?;
+                    if i < set.len() - 1 {
+                        write!(f, " ")?;
+                    }
+                }
+                write!(f, "}}")
+            }
+        }
+    }
+}
+
+impl EDN {
+    fn parse(input: &str) -> Result<EDN, String> {
+        // For simplicity, let's start with basic parsing
+        if input.trim() == "nil" {
+            return Ok(EDN::Nil);
+        }
+
+        if let Ok(boolean) = input.trim().parse::<bool>() {
+            return Ok(EDN::Bool(boolean));
+        }
+
+        if let Some(integer) = BigInt::parse_bytes(input.trim().as_bytes(), 10) {
+            return Ok(EDN::Integer(integer));
+        }
+
+        if let Ok(float) = BigDecimal::from_str(input.trim()) {
+            return Ok(EDN::Float(float));
+        }
+
+        if input.starts_with("\"") && input.ends_with("\"") {
+            let s = &input[1..input.len() - 1];
+            return Ok(EDN::String(s.to_string()));
+        }
+
+        if input.starts_with(':') {
+            return Ok(EDN::Keyword(input.to_string()));
+        }
+
+        if input.starts_with('(') && input.ends_with(')') {
+            let items = &input[1..input.len() - 1];
+            let parsed_items = items
+                .split_whitespace()
+                .map(|item| EDN::parse(item))
+                .collect::<Result<Vec<EDN>, String>>()?;
+            return Ok(EDN::List(parsed_items));
+        }
+
+        if input.starts_with('[') && input.ends_with(']') {
+            let items = &input[1..input.len() - 1];
+            let parsed_items = items
+                .split_whitespace()
+                .map(|item| EDN::parse(item))
+                .collect::<Result<Vec<EDN>, String>>()?;
+            return Ok(EDN::Vector(parsed_items));
+        }
+
+        if input.starts_with('{') && input.ends_with('}') {
+            let items = &input[1..input.len() - 1];
+            let mut map = HashMap::new();
+            let pairs = items
+                .split(',')
+                .map(|pair| {
+                    let mut kv = pair.split_whitespace();
+                    let k = kv.next().ok_or("Missing key")?;
+                    let v = kv.next().ok_or("Missing value")?;
+                    Ok((EDN::parse(k)?, EDN::parse(v)?))
+                })
+                .collect::<Result<Vec<(EDN, EDN)>, String>>()?;
+            for (k, v) in pairs {
+                map.insert(k, v);
+            }
+            return Ok(EDN::Map(map));
+        }
+
+        if input.starts_with('#') && input.ends_with('}') {
+            let items = &input[2..input.len() - 1];
+            let parsed_items = items
+                .split_whitespace()
+                .map(|item| EDN::parse(item))
+                .collect::<Result<HashSet<EDN>, String>>()?;
+            return Ok(EDN::Set(parsed_items));
+        }
+
+        let symbol_regex =
+            Regex::new(r"[a-zA-Z_*!@$%^&|=<>?][a-zA-Z0-9_*!@$%^&|=<>?.+-]*").unwrap();
+
+        if symbol_regex.is_match(input) {
+            return Ok(EDN::Symbol(input.to_string()));
+        }
+
+        Err(format!("Unable to parse EDN: {}", input))
+    }
 }
 
 fn main() {
-    // EDN Nil example
-    let nil_example = EDN::Nil;
+    let examples = vec![
+        "nil",
+        "true",
+        "false",
+        "42",
+        "3.14",
+        "\"Hello, EDN!\"",
+        ":my-keyword",
+        "(1 2 3)",
+        "[true \"vector\"]",
+        "{:key \"value\"}",
+        "#{1 2 3}",
+        "foobar",
+	"((+ 2 3 ))"
+    ];
 
-    // EDN Boolean example
-    let bool_example = EDN::Bool(true);
-
-    // EDN Integer example
-    let b = BigInt::from(i64::MAX) +1;
-    let int_example = EDN::Integer(b);
-
-    // EDN Float example
-    //let f = BigDecimal::from(f64::MAX)+1;
-    //let dec = BigDecimal::from_str(&input).unwrap();
-    let dec = BigDecimal::from_f64(f64::MAX).unwrap();
-    let float_example = EDN::Float(dec);
-
-    // EDN String example
-    let string_example = EDN::String("Hello, EDN!".to_string());
-
-    // EDN Symbol example
-    let symbol_example = EDN::Symbol("my-symbol".to_string());
-
-    // EDN Keyword example
-    let keyword_example = EDN::Keyword(":my-keyword".to_string());
-
-    // EDN List example
-    let list_example = EDN::List(vec![
-        EDN::Integer(BigInt::from(1)),
-        EDN::Integer(BigInt::from(2)),
-        EDN::Integer(BigInt::from(2147483648i64)),
-    ]);
-
-    // EDN Vector example
-    let vector_example = EDN::Vector(vec![EDN::Bool(false), EDN::String("vector".to_string())]);
-
-    // EDN Map example
-    let mut map = HashMap::new();
-    map.insert(
-        EDN::Keyword(":key".to_string()),
-        EDN::String("value".to_string()),
-    );
-    let map_example = EDN::Map(map);
-
-    // EDN Set example
-    let mut set = HashSet::new();
-    set.insert(EDN::Integer(BigInt::from(1)));
-    set.insert(EDN::Integer(BigInt::from(2)));
-    let set_example = EDN::Set(set);
-
-    // Printing examples
-    println!("{:?}", nil_example);
-    println!("{:?}", bool_example);
-    println!("{:?}", int_example);
-    println!("{:?} {:?}", float_example, float_example);
-    println!("{:?}", string_example);
-    println!("{:?}", symbol_example);
-    println!("{:?}", keyword_example);
-    println!("{:?}", list_example);
-    println!("{:?}", vector_example);
-
-    println!("{:?}", map_example);
-    println!("{:?}", set_example);
-[}
+    for example in examples {
+        match EDN::parse(example) {
+            Ok(edn) => println!("Parsed: {} -> {:?}", example, edn),
+            Err(e) => println!("Error: {} -> {}", example, e),
+        }
+    }
+}
