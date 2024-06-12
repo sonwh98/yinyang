@@ -1,15 +1,16 @@
 use bigdecimal::BigDecimal;
+use bigdecimal::FromPrimitive;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
+//use std::str::FromStr;
 
 #[derive(Debug)]
-#[allow(dead_code)]
 enum EDN {
     Nil,
     Bool(bool),
     Integer(BigInt),
-    Float(f64),
+    Float(BigDecimal),
     String(String),
     Symbol(String),
     Keyword(String),
@@ -25,7 +26,7 @@ impl PartialEq for EDN {
             (EDN::Nil, EDN::Nil) => true,
             (EDN::Bool(b1), EDN::Bool(b2)) => b1 == b2,
             (EDN::Integer(i1), EDN::Integer(i2)) => i1 == i2,
-            (EDN::Float(f1), EDN::Float(f2)) => f1.to_bits() == f2.to_bits(), // Use to_bits for bitwise comparison
+            (EDN::Float(f1), EDN::Float(f2)) => f1 == f2,
             (EDN::String(s1), EDN::String(s2)) => s1 == s2,
             (EDN::Symbol(sym1), EDN::Symbol(sym2)) => sym1 == sym2,
             (EDN::Keyword(k1), EDN::Keyword(k2)) => k1 == k2,
@@ -54,9 +55,7 @@ impl Hash for EDN {
             }
             EDN::Float(f) => {
                 state.write_u8(3);
-                // Hash a bitwise representation of the float
-                // Not the value itself to avoid NaN issues
-                state.write(&f.to_bits().to_ne_bytes());
+                f.hash(state);
             }
             EDN::String(s) => {
                 state.write_u8(4);
@@ -100,8 +99,6 @@ fn print_type_of<T>(_: &T) {
     println!("{}", std::any::type_name::<T>());
 }
 
-#[allow(dead_code)]
-#[allow(unused)]
 fn main() {
     let i = BigInt::from(2147483);
     println!("i={:?}", i);
@@ -113,10 +110,14 @@ fn main() {
     let bool_example = EDN::Bool(true);
 
     // EDN Integer example
-    let int_example = EDN::Integer(BigInt::from(10));
+    let b = BigInt::from(i64::MAX) +1;
+    let int_example = EDN::Integer(b);
 
     // EDN Float example
-    let float_example = EDN::Float(3.14);
+    //let f = BigDecimal::from(f64::MAX)+1;
+    //let dec = BigDecimal::from_str(&input).unwrap();
+    let dec = BigDecimal::from_f64(f64::MAX).unwrap();
+    let float_example = EDN::Float(dec);
 
     // EDN String example
     let string_example = EDN::String("Hello, EDN!".to_string());
@@ -155,7 +156,7 @@ fn main() {
     println!("{:?}", nil_example);
     println!("{:?}", bool_example);
     println!("{:?}", int_example);
-    println!("{:?}", float_example);
+    println!("{:?} {:?}", float_example, float_example);
     println!("{:?}", string_example);
     println!("{:?}", symbol_example);
     println!("{:?}", keyword_example);
