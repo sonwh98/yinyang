@@ -100,9 +100,6 @@ fn print_type_of<T>(_: &T) {
 }
 
 fn main() {
-    let i = BigInt::from(2147483);
-    println!("i={:?}", i);
-
     // EDN Nil example
     let nil_example = EDN::Nil;
 
