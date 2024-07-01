@@ -1,5 +1,5 @@
 use bigdecimal::BigDecimal;
-use im::{HashMap, HashSet, Vector};
+use imbl::{HashMap, HashSet, Vector};
 use num_bigint::BigInt;
 use regex::Regex;
 use std::fmt;
