@@ -1,10 +1,10 @@
 use bigdecimal::BigDecimal;
-use regex::Regex;
+use im::{HashMap, HashSet, Vector};
 use num_bigint::BigInt;
+use regex::Regex;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use im::{HashMap, HashSet, Vector};
 
 #[derive(Debug, Clone)]
 enum EDN {
@@ -15,8 +15,8 @@ enum EDN {
     String(String),
     Symbol(String),
     Keyword(String),
-    List(Vec<EDN>),
-    Vector(Vec<EDN>),
+    List(Vector<EDN>),
+    Vector(Vector<EDN>),
     Map(HashMap<EDN, EDN>),
     Set(HashSet<EDN>),
 }
@@ -102,7 +102,7 @@ impl Hash for EDN {
 impl EDN {
     fn parse(input: &str) -> Result<EDN, String> {
         let input = input.trim();
-	
+
         if input == "nil" {
             return Ok(EDN::Nil);
         }
@@ -161,10 +161,8 @@ impl EDN {
             return Ok(EDN::Set(parsed_items));
         }
 
-        let symbol_regex = Regex::new(r"[\.\w*!@$%^&|=<>?+/][-a-zA-Z0-9_*!@$%^&|=<>?.+/]*").unwrap();
-		
-	//Regex::new(r"[a-zA-Z_*!@$%^&|=<>?+/-][a-zA-Z0-9_*!@$%^&|=<>?.+-/]*").unwrap();
-
+        let symbol_regex =
+            Regex::new(r"[\.\w*!@$%^&|=<>?+/~-][-a-zA-Z0-9_*!@$%^&|=<>?.+/~-]*").unwrap();
         if symbol_regex.is_match(input) {
             return Ok(EDN::Symbol(input.to_string()));
         }
@@ -172,8 +170,8 @@ impl EDN {
         Err(format!("Unable to parse EDN: {}", input))
     }
 
-    fn parse_items(input: &str) -> Result<Vec<EDN>, String> {
-        let mut items = Vec::new();
+    fn parse_items(input: &str) -> Result<Vector<EDN>, String> {
+        let mut items = Vector::new();
         let mut buffer = String::new();
         let mut in_nested = 0;
         for ch in input.chars() {
@@ -186,13 +184,13 @@ impl EDN {
                     in_nested -= 1;
                     buffer.push(ch);
                     if in_nested == 0 {
-                        items.push(EDN::parse(&buffer.trim())?);
+                        items.push_back(EDN::parse(&buffer.trim())?);
                         buffer.clear();
                     }
                 }
                 ' ' if in_nested == 0 => {
                     if !buffer.is_empty() {
-                        items.push(EDN::parse(&buffer.trim())?);
+                        items.push_back(EDN::parse(&buffer.trim())?);
                         buffer.clear();
                     }
                 }
@@ -200,13 +198,13 @@ impl EDN {
             }
         }
         if !buffer.is_empty() {
-            items.push(EDN::parse(&buffer.trim())?);
+            items.push_back(EDN::parse(&buffer.trim())?);
         }
         Ok(items)
     }
 
-    fn split_items(input: &str) -> Result<Vec<String>, String> {
-        let mut items = Vec::new();
+    fn split_items(input: &str) -> Result<Vector<String>, String> {
+        let mut items = Vector::new();
         let mut buffer = String::new();
         let mut in_nested = 0;
         for ch in input.chars() {
@@ -220,14 +218,14 @@ impl EDN {
                     buffer.push(ch);
                 }
                 ',' if in_nested == 0 => {
-                    items.push(buffer.trim().to_string());
+                    items.push_back(buffer.trim().to_string());
                     buffer.clear();
                 }
                 _ => buffer.push(ch),
             }
         }
         if !buffer.is_empty() {
-            items.push(buffer.trim().to_string());
+            items.push_back(buffer.trim().to_string());
         }
         Ok(items)
     }
@@ -289,9 +287,9 @@ impl fmt::Display for EDN {
 
 fn main() {
     let examples = vec![
-        "(1 (2 3 [4 5 6]) 4)",
+        "(1 (2 3) 4)",
         "[1 2 [3 4] 5]",
-        "{:a 1 :b 2 :c [a b c]}",
+        "{:a 1 :b 2}",
         "#{{1 2} {3 4}}",
         "nil",
         "true",
@@ -301,25 +299,25 @@ fn main() {
         "\"a string\"",
         ":keyword",
         "symbol",
-	"+",
-	"-",
-	"*",
-	"/",
-	"_",
-	"$",
-	"?",
-	"<",
-	">",
-	"!",
-	"|",
-	"%",
-	"@",
-	".",
-	"..",
-	"(defn sum [a b] (+ a b))",
-	"(-> a b c)",
-	"(. Foo bar 1 2 3)",
-	"(.. Foo (bar 1 2 3))"
+        "+",
+        "-",
+        "*",
+        "/",
+        "_",
+        "$",
+        "?",
+        "<",
+        ">",
+        "!",
+        "|",
+        "%",
+        "@",
+        ".",
+        "..",
+        "(defn sum [a b] (+ a b))",
+        "(-> a b c)",
+        "(. Foo bar 1 2 3)",
+        "(.. Foo (bar 1 2 3))",
     ];
 
     for example in examples {
