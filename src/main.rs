@@ -1,10 +1,10 @@
 use bigdecimal::BigDecimal;
 use regex::Regex;
 use num_bigint::BigInt;
-use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
+use im::{HashMap, HashSet, Vector};
 
 #[derive(Debug, Clone)]
 enum EDN {
@@ -291,7 +291,7 @@ fn main() {
     let examples = vec![
         "(1 (2 3 [4 5 6]) 4)",
         "[1 2 [3 4] 5]",
-        "{:a 1 :b 2}",
+        "{:a 1 :b 2 :c [a b c]}",
         "#{{1 2} {3 4}}",
         "nil",
         "true",
