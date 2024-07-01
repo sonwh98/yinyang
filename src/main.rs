@@ -72,11 +72,15 @@ impl Hash for EDN {
             }
             EDN::List(l) => {
                 state.write_u8(7);
-                l.hash(state);
+                for item in l {
+                    item.hash(state);
+                }
             }
             EDN::Vector(v) => {
                 state.write_u8(8);
-                v.hash(state);
+                for item in v {
+                    item.hash(state);
+                }
             }
             EDN::Map(m) => {
                 state.write_u8(9);
@@ -87,63 +91,9 @@ impl Hash for EDN {
             }
             EDN::Set(s) => {
                 state.write_u8(10);
-                for v in s {
-                    v.hash(state);
+                for item in s {
+                    item.hash(state);
                 }
-            }
-        }
-    }
-}
-
-impl fmt::Display for EDN {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            EDN::Nil => write!(f, "nil"),
-            EDN::Bool(b) => write!(f, "{}", b),
-            EDN::Integer(i) => write!(f, "{}", i),
-            EDN::Float(dec) => write!(f, "{}", dec),
-            EDN::String(s) => write!(f, "\"{}\"", s),
-            EDN::Symbol(sym) => write!(f, "{}", sym),
-            EDN::Keyword(kw) => write!(f, "{}", kw),
-            EDN::List(list) => {
-                write!(f, "(")?;
-                for (i, item) in list.iter().enumerate() {
-                    write!(f, "{}", item)?;
-                    if i < list.len() - 1 {
-                        write!(f, " ")?;
-                    }
-                }
-                write!(f, ")")
-            }
-            EDN::Vector(vec) => {
-                write!(f, "[")?;
-                for (i, item) in vec.iter().enumerate() {
-                    write!(f, "{}", item)?;
-                    if i < vec.len() - 1 {
-                        write!(f, " ")?;
-                    }
-                }
-                write!(f, "]")
-            }
-            EDN::Map(map) => {
-                write!(f, "{{")?;
-                for (i, (k, v)) in map.iter().enumerate() {
-                    write!(f, "{} {}", k, v)?;
-                    if i < map.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-                write!(f, "}}")
-            }
-            EDN::Set(set) => {
-                write!(f, "#{{")?;
-                for (i, item) in set.iter().enumerate() {
-                    write!(f, "{}", item)?;
-                    if i < set.len() - 1 {
-                        write!(f, " ")?;
-                    }
-                }
-                write!(f, "}}")
             }
         }
     }
@@ -151,26 +101,27 @@ impl fmt::Display for EDN {
 
 impl EDN {
     fn parse(input: &str) -> Result<EDN, String> {
-        // For simplicity, let's start with basic parsing
-        if input.trim() == "nil" {
+        let input = input.trim();
+	
+        if input == "nil" {
             return Ok(EDN::Nil);
         }
 
-        if let Ok(boolean) = input.trim().parse::<bool>() {
-            return Ok(EDN::Bool(boolean));
+        if let Ok(b) = input.parse::<bool>() {
+            return Ok(EDN::Bool(b));
         }
 
-        if let Some(integer) = BigInt::parse_bytes(input.trim().as_bytes(), 10) {
-            return Ok(EDN::Integer(integer));
+        if let Ok(i) = input.parse::<BigInt>() {
+            return Ok(EDN::Integer(i));
         }
 
-        if let Ok(float) = BigDecimal::from_str(input.trim()) {
-            return Ok(EDN::Float(float));
+        if let Ok(f) = BigDecimal::from_str(input) {
+            return Ok(EDN::Float(f));
         }
 
-        if input.starts_with("\"") && input.ends_with("\"") {
-            let s = &input[1..input.len() - 1];
-            return Ok(EDN::String(s.to_string()));
+        if input.starts_with('"') && input.ends_with('"') {
+            let content = &input[1..input.len() - 1];
+            return Ok(EDN::String(content.to_string()));
         }
 
         if input.starts_with(':') {
@@ -179,51 +130,40 @@ impl EDN {
 
         if input.starts_with('(') && input.ends_with(')') {
             let items = &input[1..input.len() - 1];
-            let parsed_items = items
-                .split_whitespace()
-                .map(|item| EDN::parse(item))
-                .collect::<Result<Vec<EDN>, String>>()?;
+            let parsed_items = Self::parse_items(items)?;
             return Ok(EDN::List(parsed_items));
         }
 
         if input.starts_with('[') && input.ends_with(']') {
             let items = &input[1..input.len() - 1];
-            let parsed_items = items
-                .split_whitespace()
-                .map(|item| EDN::parse(item))
-                .collect::<Result<Vec<EDN>, String>>()?;
+            let parsed_items = Self::parse_items(items)?;
             return Ok(EDN::Vector(parsed_items));
         }
 
         if input.starts_with('{') && input.ends_with('}') {
             let items = &input[1..input.len() - 1];
             let mut map = HashMap::new();
-            let pairs = items
-                .split(',')
-                .map(|pair| {
-                    let mut kv = pair.split_whitespace();
-                    let k = kv.next().ok_or("Missing key")?;
-                    let v = kv.next().ok_or("Missing value")?;
-                    Ok((EDN::parse(k)?, EDN::parse(v)?))
-                })
-                .collect::<Result<Vec<(EDN, EDN)>, String>>()?;
-            for (k, v) in pairs {
-                map.insert(k, v);
+            let pairs = Self::split_items(items)?;
+            for pair in pairs {
+                let mut kv = pair.splitn(2, ' ');
+                let k = kv.next().ok_or("Missing key")?;
+                let v = kv.next().ok_or("Missing value")?;
+                map.insert(EDN::parse(k)?, EDN::parse(v)?);
             }
             return Ok(EDN::Map(map));
         }
 
         if input.starts_with('#') && input.ends_with('}') {
             let items = &input[2..input.len() - 1];
-            let parsed_items = items
-                .split_whitespace()
-                .map(|item| EDN::parse(item))
-                .collect::<Result<HashSet<EDN>, String>>()?;
+            let parsed_items = Self::parse_items(items)?
+                .into_iter()
+                .collect::<HashSet<_>>();
             return Ok(EDN::Set(parsed_items));
         }
 
-        let symbol_regex =
-            Regex::new(r"[a-zA-Z_*!@$%^&|=<>?][a-zA-Z0-9_*!@$%^&|=<>?.+-]*").unwrap();
+        let symbol_regex = Regex::new(r"[\.\w*!@$%^&|=<>?+/][-a-zA-Z0-9_*!@$%^&|=<>?.+/]*").unwrap();
+		
+	//Regex::new(r"[a-zA-Z_*!@$%^&|=<>?+/-][a-zA-Z0-9_*!@$%^&|=<>?.+-/]*").unwrap();
 
         if symbol_regex.is_match(input) {
             return Ok(EDN::Symbol(input.to_string()));
@@ -231,23 +171,155 @@ impl EDN {
 
         Err(format!("Unable to parse EDN: {}", input))
     }
+
+    fn parse_items(input: &str) -> Result<Vec<EDN>, String> {
+        let mut items = Vec::new();
+        let mut buffer = String::new();
+        let mut in_nested = 0;
+        for ch in input.chars() {
+            match ch {
+                '(' | '[' | '{' => {
+                    in_nested += 1;
+                    buffer.push(ch);
+                }
+                ')' | ']' | '}' => {
+                    in_nested -= 1;
+                    buffer.push(ch);
+                    if in_nested == 0 {
+                        items.push(EDN::parse(&buffer.trim())?);
+                        buffer.clear();
+                    }
+                }
+                ' ' if in_nested == 0 => {
+                    if !buffer.is_empty() {
+                        items.push(EDN::parse(&buffer.trim())?);
+                        buffer.clear();
+                    }
+                }
+                _ => buffer.push(ch),
+            }
+        }
+        if !buffer.is_empty() {
+            items.push(EDN::parse(&buffer.trim())?);
+        }
+        Ok(items)
+    }
+
+    fn split_items(input: &str) -> Result<Vec<String>, String> {
+        let mut items = Vec::new();
+        let mut buffer = String::new();
+        let mut in_nested = 0;
+        for ch in input.chars() {
+            match ch {
+                '(' | '[' | '{' => {
+                    in_nested += 1;
+                    buffer.push(ch);
+                }
+                ')' | ']' | '}' => {
+                    in_nested -= 1;
+                    buffer.push(ch);
+                }
+                ',' if in_nested == 0 => {
+                    items.push(buffer.trim().to_string());
+                    buffer.clear();
+                }
+                _ => buffer.push(ch),
+            }
+        }
+        if !buffer.is_empty() {
+            items.push(buffer.trim().to_string());
+        }
+        Ok(items)
+    }
+}
+
+impl fmt::Display for EDN {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            EDN::Nil => write!(f, "nil"),
+            EDN::Bool(b) => write!(f, "{}", b),
+            EDN::Integer(i) => write!(f, "{}", i),
+            EDN::Float(d) => write!(f, "{}", d),
+            EDN::String(s) => write!(f, "\"{}\"", s),
+            EDN::Symbol(sym) => write!(f, "{}", sym),
+            EDN::Keyword(k) => write!(f, "{}", k),
+            EDN::List(l) => {
+                write!(f, "(")?;
+                for (i, item) in l.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", item)?;
+                }
+                write!(f, ")")
+            }
+            EDN::Vector(v) => {
+                write!(f, "[")?;
+                for (i, item) in v.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", item)?;
+                }
+                write!(f, "]")
+            }
+            EDN::Map(m) => {
+                write!(f, "{{")?;
+                for (i, (k, v)) in m.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{} {}", k, v)?;
+                }
+                write!(f, "}}")
+            }
+            EDN::Set(s) => {
+                write!(f, "#{{")?;
+                for (i, item) in s.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    write!(f, "{}", item)?;
+                }
+                write!(f, "}}")
+            }
+        }
+    }
 }
 
 fn main() {
     let examples = vec![
+        "(1 (2 3 [4 5 6]) 4)",
+        "[1 2 [3 4] 5]",
+        "{:a 1 :b 2}",
+        "#{{1 2} {3 4}}",
         "nil",
         "true",
         "false",
-        "42",
-        "3.14",
-        "\"Hello, EDN!\"",
-        ":my-keyword",
-        "(1 2 3)",
-        "[true \"vector\"]",
-        "{:key \"value\"}",
-        "#{1 2 3}",
-        "foobar",
-	"((+ 2 3 ))"
+        "123",
+        "45.67",
+        "\"a string\"",
+        ":keyword",
+        "symbol",
+	"+",
+	"-",
+	"*",
+	"/",
+	"_",
+	"$",
+	"?",
+	"<",
+	">",
+	"!",
+	"|",
+	"%",
+	"@",
+	".",
+	"..",
+	"(defn sum [a b] (+ a b))",
+	"(-> a b c)",
+	"(. Foo bar 1 2 3)",
+	"(.. Foo (bar 1 2 3))"
     ];
 
     for example in examples {
