@@ -100,7 +100,7 @@ impl Hash for EDN {
 }
 
 impl EDN {
-    fn parse(input: &str) -> Result<EDN, String> {
+    fn read_string(input: &str) -> Result<EDN, String> {
         let input = input.trim();
 
         if input == "nil" {
@@ -148,7 +148,7 @@ impl EDN {
                 let mut kv = pair.splitn(2, ' ');
                 let k = kv.next().ok_or("Missing key")?;
                 let v = kv.next().ok_or("Missing value")?;
-                map.insert(EDN::parse(k)?, EDN::parse(v)?);
+                map.insert(EDN::read_string(k)?, EDN::read_string(v)?);
             }
             return Ok(EDN::Map(map));
         }
@@ -184,13 +184,13 @@ impl EDN {
                     in_nested -= 1;
                     buffer.push(ch);
                     if in_nested == 0 {
-                        items.push_back(EDN::parse(&buffer.trim())?);
+                        items.push_back(EDN::read_string(&buffer.trim())?);
                         buffer.clear();
                     }
                 }
                 ' ' if in_nested == 0 => {
                     if !buffer.is_empty() {
-                        items.push_back(EDN::parse(&buffer.trim())?);
+                        items.push_back(EDN::read_string(&buffer.trim())?);
                         buffer.clear();
                     }
                 }
@@ -198,7 +198,7 @@ impl EDN {
             }
         }
         if !buffer.is_empty() {
-            items.push_back(EDN::parse(&buffer.trim())?);
+            items.push_back(EDN::read_string(&buffer.trim())?);
         }
         Ok(items)
     }
@@ -321,9 +321,21 @@ fn main() {
     ];
 
     for example in examples {
-        match EDN::parse(example) {
+        match EDN::read_string(example) {
             Ok(edn) => println!("Parsed: {} -> {:?}", example, edn),
             Err(e) => println!("Error: {} -> {}", example, e),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add() {
+	println!("foo");
+	let exp = EDN::read_string("(+ 1 1)");
+	println!("{:?}", exp);
     }
 }
