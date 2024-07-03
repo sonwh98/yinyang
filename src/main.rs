@@ -331,11 +331,95 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_bigint::BigInt;
+    use imbl::Vector;
 
     #[test]
-    fn test_add() {
-	println!("foo");
-	let exp = EDN::read_string("(+ 1 1)");
-	println!("{:?}", exp);
+    fn test_read_string_simple_addition() {
+        let input = "(+ 1 1)";
+        let expected = EDN::List(Vector::from(vec![
+            EDN::Symbol("+".to_string()),
+            EDN::Integer(BigInt::from(1)),
+            EDN::Integer(BigInt::from(1)),
+        ]));
+        
+        match EDN::read_string(input) {
+            Ok(parsed) => assert_eq!(parsed, expected),
+            Err(e) => panic!("Failed to parse '{}': {}", input, e),
+        }
     }
+
+    #[test]
+    fn test_read_string_nested_list() {
+        let input = "(1 (2 3) 4)";
+        let expected = EDN::List(Vector::from(vec![
+            EDN::Integer(BigInt::from(1)),
+            EDN::List(Vector::from(vec![
+                EDN::Integer(BigInt::from(2)),
+                EDN::Integer(BigInt::from(3)),
+            ])),
+            EDN::Integer(BigInt::from(4)),
+        ]));
+        
+        match EDN::read_string(input) {
+            Ok(parsed) => assert_eq!(parsed, expected),
+            Err(e) => panic!("Failed to parse '{}': {}", input, e),
+        }
+    }
+
+    #[test]
+    fn test_read_string_vector() {
+        let input = "[1 2 [3 4] 5]";
+        let expected = EDN::Vector(Vector::from(vec![
+            EDN::Integer(BigInt::from(1)),
+            EDN::Integer(BigInt::from(2)),
+            EDN::Vector(Vector::from(vec![
+                EDN::Integer(BigInt::from(3)),
+                EDN::Integer(BigInt::from(4)),
+            ])),
+            EDN::Integer(BigInt::from(5)),
+        ]));
+        
+        match EDN::read_string(input) {
+            Ok(parsed) => assert_eq!(parsed, expected),
+            Err(e) => panic!("Failed to parse '{}': {}", input, e),
+        }
+    }
+
+    // #[test]
+    // fn test_read_string_map() {
+    //     let input = "{:a 1 :b 2}";
+    //     let mut expected_map = HashMap::new();
+    //     expected_map.insert(EDN::Keyword("a".to_string()), EDN::Integer(BigInt::from(1)));
+    //     expected_map.insert(EDN::Keyword("b".to_string()), EDN::Integer(BigInt::from(2)));
+    //     let expected = EDN::Map(expected_map);
+        
+    //     match EDN::read_string(input) {
+    //         Ok(parsed) => assert_eq!(parsed, expected),
+    //         Err(e) => panic!("Failed to parse '{}': {}", input, e),
+    //     }
+    // }
+
+    // #[test]
+    // fn test_read_string_set() {
+    //     let input = "#{{1 2} {3 4}}";
+    //     let mut set1 = HashSet::new();
+    //     set1.insert(EDN::Integer(BigInt::from(1)));
+    //     set1.insert(EDN::Integer(BigInt::from(2)));
+
+    //     let mut set2 = HashSet::new();
+    //     set2.insert(EDN::Integer(BigInt::from(3)));
+    //     set2.insert(EDN::Integer(BigInt::from(4)));
+
+    //     let mut expected_set = HashSet::new();
+    //     expected_set.insert(EDN::Set(set1));
+    //     expected_set.insert(EDN::Set(set2));
+
+    //     let expected = EDN::Set(expected_set);
+        
+    //     match EDN::read_string(input) {
+    //         Ok(parsed) => assert_eq!(parsed, expected),
+    //         Err(e) => panic!("Failed to parse '{}': {}", input, e),
+    //     }
+    // }
 }
