@@ -140,18 +140,37 @@ impl EDN {
             return Ok(EDN::Vector(parsed_items));
         }
 
-        if input.starts_with('{') && input.ends_with('}') {
-            let items = &input[1..input.len() - 1];
+	if input.starts_with('{') && input.ends_with('}') {
+            let content = &input[1..input.len() - 1];
             let mut map = HashMap::new();
-            let pairs = Self::split_items(items)?;
-            for pair in pairs {
-                let mut kv = pair.splitn(2, ' ');
-                let k = kv.next().ok_or("Missing key")?;
-                let v = kv.next().ok_or("Missing value")?;
-                map.insert(EDN::read_string(k)?, EDN::read_string(v)?);
+            let mut key_val_iter = content.split_whitespace();
+            
+            while let Some(key) = key_val_iter.next() {
+                if let Some(val) = key_val_iter.next() {
+                    let key_edn = EDN::Keyword(key.to_string());
+                    let val_edn = if let Ok(int_val) = val.parse::<BigInt>() {
+                        EDN::Integer(int_val)
+                    } else {
+                        EDN::Symbol(val.to_string())
+                    };
+                    map.insert(key_edn, val_edn);
+                }
             }
-            return Ok(EDN::Map(map));
+            return Ok(EDN::Map(map))
         }
+	
+        // if input.starts_with('{') && input.ends_with('}') {
+        //     let items = &input[1..input.len() - 1];
+        //     let mut map = HashMap::new();
+        //     let pairs = Self::split_items(items)?;
+        //     for pair in pairs {
+        //         let mut kv = pair.splitn(2, ' ');
+        //         let k = kv.next().ok_or("Missing key")?;
+        //         let v = kv.next().ok_or("Missing value")?;
+        //         map.insert(EDN::read_string(k)?, EDN::read_string(v)?);
+        //     }
+        //     return Ok(EDN::Map(map));
+        // }
 
         if input.starts_with('#') && input.ends_with('}') {
             let items = &input[2..input.len() - 1];
@@ -289,7 +308,7 @@ fn main() {
     let examples = vec![
         "(1 (2 3) 4)",
         "[1 2 [3 4] 5]",
-        "{:a 1 :b 2}",
+        "{:a 1 :b 2 :c 3}",
         "#{{1 2} {3 4}}",
         "nil",
         "true",
@@ -386,19 +405,20 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn test_read_string_map() {
-    //     let input = "{:a 1 :b 2}";
-    //     let mut expected_map = HashMap::new();
-    //     expected_map.insert(EDN::Keyword("a".to_string()), EDN::Integer(BigInt::from(1)));
-    //     expected_map.insert(EDN::Keyword("b".to_string()), EDN::Integer(BigInt::from(2)));
-    //     let expected = EDN::Map(expected_map);
-        
-    //     match EDN::read_string(input) {
-    //         Ok(parsed) => assert_eq!(parsed, expected),
-    //         Err(e) => panic!("Failed to parse '{}': {}", input, e),
-    //     }
-    // }
+    #[test]
+    fn test_read_string_map() {
+        let input = "{:a 1 :b 2}";
+        let mut expected_map = HashMap::new();
+        expected_map.insert(EDN::Keyword("a".to_string()), EDN::Integer(BigInt::from(1)));
+        expected_map.insert(EDN::Keyword("b".to_string()), EDN::Integer(BigInt::from(2)));
+        let expected = EDN::Map(expected_map);
+        println!("expected={:?}", expected);
+	
+        match EDN::read_string(input) {
+            Ok(parsed) => assert_eq!(parsed, expected),
+            Err(e) => panic!("Failed to parse '{}': {}", input, e),
+        }
+    }
 
     // #[test]
     // fn test_read_string_set() {
