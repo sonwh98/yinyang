@@ -140,14 +140,18 @@ impl EDN {
             return Ok(EDN::Vector(parsed_items));
         }
 
-	if input.starts_with('{') && input.ends_with('}') {
+        if input.starts_with('{') && input.ends_with('}') {
             let content = &input[1..input.len() - 1];
             let mut map = HashMap::new();
             let mut key_val_iter = content.split_whitespace();
-            
+
             while let Some(key) = key_val_iter.next() {
                 if let Some(val) = key_val_iter.next() {
-                    let key_edn = EDN::Keyword(key.to_string());
+                    let key_edn = if key.starts_with(':') {
+                        EDN::Keyword(key[1..].to_string()) // Strip the ':' from the keyword
+                    } else {
+                        return Err(format!("Invalid keyword format: {}", key));
+                    };
                     let val_edn = if let Ok(int_val) = val.parse::<BigInt>() {
                         EDN::Integer(int_val)
                     } else {
@@ -156,21 +160,8 @@ impl EDN {
                     map.insert(key_edn, val_edn);
                 }
             }
-            return Ok(EDN::Map(map))
+            return Ok(EDN::Map(map));
         }
-	
-        // if input.starts_with('{') && input.ends_with('}') {
-        //     let items = &input[1..input.len() - 1];
-        //     let mut map = HashMap::new();
-        //     let pairs = Self::split_items(items)?;
-        //     for pair in pairs {
-        //         let mut kv = pair.splitn(2, ' ');
-        //         let k = kv.next().ok_or("Missing key")?;
-        //         let v = kv.next().ok_or("Missing value")?;
-        //         map.insert(EDN::read_string(k)?, EDN::read_string(v)?);
-        //     }
-        //     return Ok(EDN::Map(map));
-        // }
 
         if input.starts_with('#') && input.ends_with('}') {
             let items = &input[2..input.len() - 1];
@@ -350,8 +341,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_bigint::BigInt;
     use imbl::Vector;
+    use num_bigint::BigInt;
 
     #[test]
     fn test_read_string_simple_addition() {
@@ -361,7 +352,7 @@ mod tests {
             EDN::Integer(BigInt::from(1)),
             EDN::Integer(BigInt::from(1)),
         ]));
-        
+
         match EDN::read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
@@ -379,7 +370,7 @@ mod tests {
             ])),
             EDN::Integer(BigInt::from(4)),
         ]));
-        
+
         match EDN::read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
@@ -398,7 +389,7 @@ mod tests {
             ])),
             EDN::Integer(BigInt::from(5)),
         ]));
-        
+
         match EDN::read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
@@ -413,7 +404,7 @@ mod tests {
         expected_map.insert(EDN::Keyword("b".to_string()), EDN::Integer(BigInt::from(2)));
         let expected = EDN::Map(expected_map);
         println!("expected={:?}", expected);
-	
+
         match EDN::read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
@@ -436,7 +427,7 @@ mod tests {
     //     expected_set.insert(EDN::Set(set2));
 
     //     let expected = EDN::Set(expected_set);
-        
+
     //     match EDN::read_string(input) {
     //         Ok(parsed) => assert_eq!(parsed, expected),
     //         Err(e) => panic!("Failed to parse '{}': {}", input, e),
