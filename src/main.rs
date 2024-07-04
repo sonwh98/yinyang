@@ -99,6 +99,33 @@ impl Hash for EDN {
     }
 }
 
+fn parse_edn_value<'a, I>(iter: &mut I) -> Result<EDN, String>
+where
+    I: Iterator<Item = &'a str>,
+{
+    if let Some(token) = iter.next() {
+        if token.starts_with(':') {
+            Ok(EDN::Keyword(token[1..].to_string()))
+        } else if let Ok(int_val) = token.parse::<BigInt>() {
+            Ok(EDN::Integer(int_val))
+        } else if token.starts_with('"') && token.ends_with('"') {
+            Ok(EDN::String(token[1..token.len() - 1].to_string()))
+        } else if token == "nil" {
+            Ok(EDN::Nil)
+        } else if token == "true" {
+            Ok(EDN::Bool(true))
+        } else if token == "false" {
+            Ok(EDN::Bool(false))
+        } else if token.starts_with('{') && token.ends_with('}') {
+            EDN::read_string(token)
+        } else {
+            Ok(EDN::Symbol(token.to_string()))
+        }
+    } else {
+        Err("Unexpected end of input".to_string())
+    }
+}
+
 impl EDN {
     fn read_string(input: &str) -> Result<EDN, String> {
         let input = input.trim();
@@ -143,25 +170,38 @@ impl EDN {
         if input.starts_with('{') && input.ends_with('}') {
             let content = &input[1..input.len() - 1];
             let mut map = HashMap::new();
-            let mut key_val_iter = content.split_whitespace();
+            let mut key_val_iter = content.split_whitespace().peekable();
 
-            while let Some(key) = key_val_iter.next() {
-                if let Some(val) = key_val_iter.next() {
-                    let key_edn = if key.starts_with(':') {
-                        EDN::Keyword(key[1..].to_string()) // Strip the ':' from the keyword
-                    } else {
-                        return Err(format!("Invalid keyword format: {}", key));
-                    };
-                    let val_edn = if let Ok(int_val) = val.parse::<BigInt>() {
-                        EDN::Integer(int_val)
-                    } else {
-                        EDN::Symbol(val.to_string())
-                    };
-                    map.insert(key_edn, val_edn);
-                }
+            while key_val_iter.peek().is_some() {
+                let key = parse_edn_value(&mut key_val_iter)?;
+                let val = parse_edn_value(&mut key_val_iter)?;
+                map.insert(key, val);
             }
             return Ok(EDN::Map(map));
         }
+
+        // if input.starts_with('{') && input.ends_with('}') {
+        //     let content = &input[1..input.len() - 1];
+        //     let mut map = HashMap::new();
+        //     let mut key_val_iter = content.split_whitespace();
+
+        //     while let Some(key) = key_val_iter.next() {
+        //         if let Some(val) = key_val_iter.next() {
+        //             let key_edn = if key.starts_with(':') {
+        //                 EDN::Keyword(key[1..].to_string()) // Strip the ':' from the keyword
+        //             } else {
+        //                 return Err(format!("Invalid keyword format: {}", key));
+        //             };
+        //             let val_edn = if let Ok(int_val) = val.parse::<BigInt>() {
+        //                 EDN::Integer(int_val)
+        //             } else {
+        //                 EDN::Symbol(val.to_string())
+        //             };
+        //             map.insert(key_edn, val_edn);
+        //         }
+        //     }
+        //     return Ok(EDN::Map(map));
+        // }
 
         if input.starts_with('#') && input.ends_with('}') {
             let items = &input[2..input.len() - 1];
@@ -300,9 +340,11 @@ fn main() {
         "(1 (2 3) 4)",
         "[1 2 [3 4] 5]",
         "{:a 1 :b 2 :c 3}",
-	"{1 2 2 4}", 
-	"#{1 2}",
+        "{1 2 2 4}",
+        "{\"first-name\" \"Sonny\" \"last-name\" \"Su\"}",
+        "#{1 2}",
         "#{{1 2} {3 4}}",
+        "#{{:a :b} {:c :d}}",
         "nil",
         "true",
         "false",
@@ -416,17 +458,16 @@ mod tests {
     #[test]
     fn test_read_string_set() {
         let input = "#{{1 2} {3 4}}";
-        let mut set1 = HashSet::new();
-        set1.insert(EDN::Integer(BigInt::from(1)));
-        set1.insert(EDN::Integer(BigInt::from(2)));
+        
+        let mut map1 = HashMap::new();
+        map1.insert(EDN::Integer(BigInt::from(1)), EDN::Integer(BigInt::from(2)));
 
-        let mut set2 = HashSet::new();
-        set2.insert(EDN::Integer(BigInt::from(3)));
-        set2.insert(EDN::Integer(BigInt::from(4)));
+        let mut map2 = HashMap::new();
+        map2.insert(EDN::Integer(BigInt::from(3)), EDN::Integer(BigInt::from(4)));
 
         let mut expected_set = HashSet::new();
-        expected_set.insert(EDN::Set(set1));
-        expected_set.insert(EDN::Set(set2));
+        expected_set.insert(EDN::Map(map1));
+        expected_set.insert(EDN::Map(map2));
 
         let expected = EDN::Set(expected_set);
 
