@@ -300,6 +300,8 @@ fn main() {
         "(1 (2 3) 4)",
         "[1 2 [3 4] 5]",
         "{:a 1 :b 2 :c 3}",
+	"{1 2 2 4}", 
+	"#{1 2}",
         "#{{1 2} {3 4}}",
         "nil",
         "true",
@@ -411,26 +413,26 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn test_read_string_set() {
-    //     let input = "#{{1 2} {3 4}}";
-    //     let mut set1 = HashSet::new();
-    //     set1.insert(EDN::Integer(BigInt::from(1)));
-    //     set1.insert(EDN::Integer(BigInt::from(2)));
+    #[test]
+    fn test_read_string_set() {
+        let input = "#{{1 2} {3 4}}";
+        let mut set1 = HashSet::new();
+        set1.insert(EDN::Integer(BigInt::from(1)));
+        set1.insert(EDN::Integer(BigInt::from(2)));
 
-    //     let mut set2 = HashSet::new();
-    //     set2.insert(EDN::Integer(BigInt::from(3)));
-    //     set2.insert(EDN::Integer(BigInt::from(4)));
+        let mut set2 = HashSet::new();
+        set2.insert(EDN::Integer(BigInt::from(3)));
+        set2.insert(EDN::Integer(BigInt::from(4)));
 
-    //     let mut expected_set = HashSet::new();
-    //     expected_set.insert(EDN::Set(set1));
-    //     expected_set.insert(EDN::Set(set2));
+        let mut expected_set = HashSet::new();
+        expected_set.insert(EDN::Set(set1));
+        expected_set.insert(EDN::Set(set2));
 
-    //     let expected = EDN::Set(expected_set);
+        let expected = EDN::Set(expected_set);
 
-    //     match EDN::read_string(input) {
-    //         Ok(parsed) => assert_eq!(parsed, expected),
-    //         Err(e) => panic!("Failed to parse '{}': {}", input, e),
-    //     }
-    // }
+        match EDN::read_string(input) {
+            Ok(parsed) => assert_eq!(parsed, expected),
+            Err(e) => panic!("Failed to parse '{}': {}", input, e),
+        }
+    }
 }
