@@ -157,13 +157,13 @@ impl EDN {
 
         if input.starts_with('(') && input.ends_with(')') {
             let items = &input[1..input.len() - 1];
-            let parsed_items = Self::parse(items)?;
+            let parsed_items = Self::read_string_helper(items)?;
             return Ok(EDN::List(parsed_items));
         }
 
         if input.starts_with('[') && input.ends_with(']') {
             let items = &input[1..input.len() - 1];
-            let parsed_items = Self::parse(items)?;
+            let parsed_items = Self::read_string_helper(items)?;
             return Ok(EDN::Vector(parsed_items));
         }
 
@@ -182,7 +182,7 @@ impl EDN {
 
         if input.starts_with('#') && input.ends_with('}') {
             let items = &input[2..input.len() - 1];
-            let parsed_items = Self::parse(items)?.into_iter().collect::<HashSet<_>>();
+            let parsed_items = Self::read_string_helper(items)?.into_iter().collect::<HashSet<_>>();
             return Ok(EDN::Set(parsed_items));
         }
 
@@ -195,7 +195,7 @@ impl EDN {
         Err(format!("Unable to parse EDN: {}", input))
     }
 
-    fn parse(input: &str) -> Result<Vector<EDN>, String> {
+    fn read_string_helper(input: &str) -> Result<Vector<EDN>, String> {
         let mut items = Vector::new();
         let mut buffer = String::new();
         let mut nesting_level = 0;
@@ -224,33 +224,6 @@ impl EDN {
         }
         if !buffer.is_empty() {
             items.push_back(EDN::read_string(&buffer.trim())?);
-        }
-        Ok(items)
-    }
-
-    fn split_items(input: &str) -> Result<Vector<String>, String> {
-        let mut items = Vector::new();
-        let mut buffer = String::new();
-        let mut nesting_level = 0;
-        for ch in input.chars() {
-            match ch {
-                '(' | '[' | '{' => {
-                    nesting_level += 1;
-                    buffer.push(ch);
-                }
-                ')' | ']' | '}' => {
-                    nesting_level -= 1;
-                    buffer.push(ch);
-                }
-                ',' if nesting_level == 0 => {
-                    items.push_back(buffer.trim().to_string());
-                    buffer.clear();
-                }
-                _ => buffer.push(ch),
-            }
-        }
-        if !buffer.is_empty() {
-            items.push_back(buffer.trim().to_string());
         }
         Ok(items)
     }
