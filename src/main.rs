@@ -127,7 +127,7 @@ where
 }
 
 impl EDN {
-    fn read_string(input: &str) -> Result<EDN, String> {
+    pub fn read_string(input: &str) -> Result<EDN, String> {
         let input = input.trim();
 
         if input == "nil" {
@@ -157,13 +157,13 @@ impl EDN {
 
         if input.starts_with('(') && input.ends_with(')') {
             let items = &input[1..input.len() - 1];
-            let parsed_items = Self::parse_items(items)?;
+            let parsed_items = Self::parse(items)?;
             return Ok(EDN::List(parsed_items));
         }
 
         if input.starts_with('[') && input.ends_with(']') {
             let items = &input[1..input.len() - 1];
-            let parsed_items = Self::parse_items(items)?;
+            let parsed_items = Self::parse(items)?;
             return Ok(EDN::Vector(parsed_items));
         }
 
@@ -180,34 +180,9 @@ impl EDN {
             return Ok(EDN::Map(map));
         }
 
-        // if input.starts_with('{') && input.ends_with('}') {
-        //     let content = &input[1..input.len() - 1];
-        //     let mut map = HashMap::new();
-        //     let mut key_val_iter = content.split_whitespace();
-
-        //     while let Some(key) = key_val_iter.next() {
-        //         if let Some(val) = key_val_iter.next() {
-        //             let key_edn = if key.starts_with(':') {
-        //                 EDN::Keyword(key[1..].to_string()) // Strip the ':' from the keyword
-        //             } else {
-        //                 return Err(format!("Invalid keyword format: {}", key));
-        //             };
-        //             let val_edn = if let Ok(int_val) = val.parse::<BigInt>() {
-        //                 EDN::Integer(int_val)
-        //             } else {
-        //                 EDN::Symbol(val.to_string())
-        //             };
-        //             map.insert(key_edn, val_edn);
-        //         }
-        //     }
-        //     return Ok(EDN::Map(map));
-        // }
-
         if input.starts_with('#') && input.ends_with('}') {
             let items = &input[2..input.len() - 1];
-            let parsed_items = Self::parse_items(items)?
-                .into_iter()
-                .collect::<HashSet<_>>();
+            let parsed_items = Self::parse(items)?.into_iter().collect::<HashSet<_>>();
             return Ok(EDN::Set(parsed_items));
         }
 
@@ -220,25 +195,25 @@ impl EDN {
         Err(format!("Unable to parse EDN: {}", input))
     }
 
-    fn parse_items(input: &str) -> Result<Vector<EDN>, String> {
+    fn parse(input: &str) -> Result<Vector<EDN>, String> {
         let mut items = Vector::new();
         let mut buffer = String::new();
-        let mut in_nested = 0;
+        let mut nesting_level = 0;
         for ch in input.chars() {
             match ch {
                 '(' | '[' | '{' => {
-                    in_nested += 1;
+                    nesting_level += 1;
                     buffer.push(ch);
                 }
                 ')' | ']' | '}' => {
-                    in_nested -= 1;
+                    nesting_level -= 1;
                     buffer.push(ch);
-                    if in_nested == 0 {
+                    if nesting_level == 0 {
                         items.push_back(EDN::read_string(&buffer.trim())?);
                         buffer.clear();
                     }
                 }
-                ' ' if in_nested == 0 => {
+                ' ' if nesting_level == 0 => {
                     if !buffer.is_empty() {
                         items.push_back(EDN::read_string(&buffer.trim())?);
                         buffer.clear();
@@ -256,18 +231,18 @@ impl EDN {
     fn split_items(input: &str) -> Result<Vector<String>, String> {
         let mut items = Vector::new();
         let mut buffer = String::new();
-        let mut in_nested = 0;
+        let mut nesting_level = 0;
         for ch in input.chars() {
             match ch {
                 '(' | '[' | '{' => {
-                    in_nested += 1;
+                    nesting_level += 1;
                     buffer.push(ch);
                 }
                 ')' | ']' | '}' => {
-                    in_nested -= 1;
+                    nesting_level -= 1;
                     buffer.push(ch);
                 }
-                ',' if in_nested == 0 => {
+                ',' if nesting_level == 0 => {
                     items.push_back(buffer.trim().to_string());
                     buffer.clear();
                 }
@@ -368,8 +343,10 @@ fn main() {
         "@",
         ".",
         "..",
+        "(+ 1 1)",
         "(defn sum [a b] (+ a b))",
         "(-> a b c)",
+        "(->> foo bar)",
         "(. Foo bar 1 2 3)",
         "(.. Foo (bar 1 2 3))",
     ];
@@ -458,7 +435,7 @@ mod tests {
     #[test]
     fn test_read_string_set() {
         let input = "#{{1 2} {3 4}}";
-        
+
         let mut map1 = HashMap::new();
         map1.insert(EDN::Integer(BigInt::from(1)), EDN::Integer(BigInt::from(2)));
 
