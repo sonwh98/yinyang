@@ -182,12 +182,20 @@ impl EDN {
 
         if input.starts_with('#') && input.ends_with('}') {
             let items = &input[2..input.len() - 1];
-            let parsed_items = Self::read_string_helper(items)?.into_iter().collect::<HashSet<_>>();
+            let parsed_items = Self::read_string_helper(items)?
+                .into_iter()
+                .collect::<HashSet<_>>();
             return Ok(EDN::Set(parsed_items));
         }
 
-        let symbol_regex =
-            Regex::new(r"[\.\w*!@$%^&|=<>?+/~-][-a-zA-Z0-9_*!@$%^&|=<>?.+/~-]*").unwrap();
+        let symbol_regex = Regex::new(
+            r"(?x)                      # Enable verbose mode
+        [\w.!@$%^&|=<>?+/~-]            # Match a single character from this set
+        [-a-zA-Z0-9_!@$%^&|=<>?.+/~-]*  # Match zero or more characters from this set
+        ",
+        )
+        .unwrap();
+
         if symbol_regex.is_match(input) {
             return Ok(EDN::Symbol(input.to_string()));
         }
