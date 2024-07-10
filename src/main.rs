@@ -180,7 +180,7 @@ impl EDN {
             return Ok(EDN::Map(map));
         }
 
-        if input.starts_with('#') && input.ends_with('}') {
+        if input.starts_with("#{") && input.ends_with('}') {
             let items = &input[2..input.len() - 1];
             let parsed_items = Self::read_string_helper(items)?
                 .into_iter()
@@ -299,6 +299,7 @@ fn main() {
         "{1 2 2 4}",
         "{\"first-name\" \"Sonny\" \"last-name\" \"Su\"}",
         "#{1 2}",
+	"#",
         "#{{1 2} {3 4}}",
         "#{{:a :b} {:c :d}}",
         "nil",
