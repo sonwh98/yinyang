@@ -289,6 +289,10 @@ impl fmt::Display for EDN {
     }
 }
 
+fn eval(edn: EDN) -> Result<EDN, String>{
+    Ok(EDN::Bool(true))
+}
+
 fn main() {
     let examples = vec![
         "(1 (2 3) 4)",
@@ -331,12 +335,14 @@ fn main() {
         "(.. Foo (bar 1 2 3))",
     ];
 
-    for example in examples {
-        match read_string(example) {
-            Ok(edn) => println!("Parsed: {} -> {:?}", example, edn),
-            Err(e) => println!("Error: {} -> {}", example, e),
-        }
-    }
+    // for example in examples {
+    //     match read_string(example) {
+    //         Ok(edn) => println!("Parsed: {} -> {:?}", example, edn),
+    //         Err(e) => println!("Error: {} -> {}", example, e),
+    //     }
+    // }
+    let foo = eval(EDN::String("abc".to_string()));
+    println!("foo {:?}", foo);
 }
 
 #[cfg(test)]
