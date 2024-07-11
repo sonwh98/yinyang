@@ -341,7 +341,9 @@ fn main() {
     //         Err(e) => println!("Error: {} -> {}", example, e),
     //     }
     // }
-    let foo = eval(EDN::String("abc".to_string()));
+    let add = read_string("(+ 2 3)").unwrap();
+    println!("add {:?}", add);
+    let foo = eval(add);
     println!("foo {:?}", foo);
 }
 
