@@ -117,7 +117,7 @@ where
         } else if token == "false" {
             Ok(EDN::Bool(false))
         } else if token.starts_with('{') && token.ends_with('}') {
-            EDN::read_string(token)
+            read_string(token)
         } else {
             Ok(EDN::Symbol(token.to_string()))
         }
@@ -126,115 +126,113 @@ where
     }
 }
 
-impl EDN {
-    pub fn read_string(input: &str) -> Result<EDN, String> {
-        let input = input.trim();
+pub fn read_string(input: &str) -> Result<EDN, String> {
+    let input = input.trim();
 
-        if input == "nil" {
-            return Ok(EDN::Nil);
+    if input == "nil" {
+        return Ok(EDN::Nil);
+    }
+
+    if let Ok(b) = input.parse::<bool>() {
+        return Ok(EDN::Bool(b));
+    }
+
+    if let Ok(i) = input.parse::<BigInt>() {
+        return Ok(EDN::Integer(i));
+    }
+
+    if let Ok(f) = BigDecimal::from_str(input) {
+        return Ok(EDN::Float(f));
+    }
+
+    if input.starts_with('"') && input.ends_with('"') {
+        let content = &input[1..input.len() - 1];
+        return Ok(EDN::String(content.to_string()));
+    }
+
+    if input.starts_with(':') {
+        return Ok(EDN::Keyword(input.to_string()));
+    }
+
+    if input.starts_with('(') && input.ends_with(')') {
+        let items = &input[1..input.len() - 1];
+        let parsed_items = read_string_helper(items)?;
+        return Ok(EDN::List(parsed_items));
+    }
+
+    if input.starts_with('[') && input.ends_with(']') {
+        let items = &input[1..input.len() - 1];
+        let parsed_items = read_string_helper(items)?;
+        return Ok(EDN::Vector(parsed_items));
+    }
+
+    if input.starts_with('{') && input.ends_with('}') {
+        let content = &input[1..input.len() - 1];
+        let mut map = HashMap::new();
+        let mut key_val_iter = content.split_whitespace().peekable();
+
+        while key_val_iter.peek().is_some() {
+            let key = parse_edn_value(&mut key_val_iter)?;
+            let val = parse_edn_value(&mut key_val_iter)?;
+            map.insert(key, val);
         }
+        return Ok(EDN::Map(map));
+    }
 
-        if let Ok(b) = input.parse::<bool>() {
-            return Ok(EDN::Bool(b));
-        }
+    if input.starts_with("#{") && input.ends_with('}') {
+        let items = &input[2..input.len() - 1];
+        let parsed_items = read_string_helper(items)?
+            .into_iter()
+            .collect::<HashSet<_>>();
+        return Ok(EDN::Set(parsed_items));
+    }
 
-        if let Ok(i) = input.parse::<BigInt>() {
-            return Ok(EDN::Integer(i));
-        }
-
-        if let Ok(f) = BigDecimal::from_str(input) {
-            return Ok(EDN::Float(f));
-        }
-
-        if input.starts_with('"') && input.ends_with('"') {
-            let content = &input[1..input.len() - 1];
-            return Ok(EDN::String(content.to_string()));
-        }
-
-        if input.starts_with(':') {
-            return Ok(EDN::Keyword(input.to_string()));
-        }
-
-        if input.starts_with('(') && input.ends_with(')') {
-            let items = &input[1..input.len() - 1];
-            let parsed_items = Self::read_string_helper(items)?;
-            return Ok(EDN::List(parsed_items));
-        }
-
-        if input.starts_with('[') && input.ends_with(']') {
-            let items = &input[1..input.len() - 1];
-            let parsed_items = Self::read_string_helper(items)?;
-            return Ok(EDN::Vector(parsed_items));
-        }
-
-        if input.starts_with('{') && input.ends_with('}') {
-            let content = &input[1..input.len() - 1];
-            let mut map = HashMap::new();
-            let mut key_val_iter = content.split_whitespace().peekable();
-
-            while key_val_iter.peek().is_some() {
-                let key = parse_edn_value(&mut key_val_iter)?;
-                let val = parse_edn_value(&mut key_val_iter)?;
-                map.insert(key, val);
-            }
-            return Ok(EDN::Map(map));
-        }
-
-        if input.starts_with("#{") && input.ends_with('}') {
-            let items = &input[2..input.len() - 1];
-            let parsed_items = Self::read_string_helper(items)?
-                .into_iter()
-                .collect::<HashSet<_>>();
-            return Ok(EDN::Set(parsed_items));
-        }
-
-        let symbol_regex = Regex::new(
-            r"(?x)                      # Enable verbose mode
+    let symbol_regex = Regex::new(
+        r"(?x)                      # Enable verbose mode
         [\w.!@$%^&|=<>?+/~-]            # Match a single character from this set
         [-a-zA-Z0-9_!@$%^&|=<>?.+/~-]*  # Match zero or more characters from this set
         ",
-        )
-        .unwrap();
+    )
+    .unwrap();
 
-        if symbol_regex.is_match(input) {
-            return Ok(EDN::Symbol(input.to_string()));
-        }
-
-        Err(format!("Unable to parse EDN: {}", input))
+    if symbol_regex.is_match(input) {
+        return Ok(EDN::Symbol(input.to_string()));
     }
 
-    fn read_string_helper(input: &str) -> Result<Vector<EDN>, String> {
-        let mut items = Vector::new();
-        let mut buffer = String::new();
-        let mut nesting_level = 0;
-        for ch in input.chars() {
-            match ch {
-                '(' | '[' | '{' => {
-                    nesting_level += 1;
-                    buffer.push(ch);
-                }
-                ')' | ']' | '}' => {
-                    nesting_level -= 1;
-                    buffer.push(ch);
-                    if nesting_level == 0 {
-                        items.push_back(EDN::read_string(&buffer.trim())?);
-                        buffer.clear();
-                    }
-                }
-                ' ' if nesting_level == 0 => {
-                    if !buffer.is_empty() {
-                        items.push_back(EDN::read_string(&buffer.trim())?);
-                        buffer.clear();
-                    }
-                }
-                _ => buffer.push(ch),
+    Err(format!("Unable to parse EDN: {}", input))
+}
+
+fn read_string_helper(input: &str) -> Result<Vector<EDN>, String> {
+    let mut items = Vector::new();
+    let mut buffer = String::new();
+    let mut nesting_level = 0;
+    for ch in input.chars() {
+        match ch {
+            '(' | '[' | '{' => {
+                nesting_level += 1;
+                buffer.push(ch);
             }
+            ')' | ']' | '}' => {
+                nesting_level -= 1;
+                buffer.push(ch);
+                if nesting_level == 0 {
+                    items.push_back(read_string(&buffer.trim())?);
+                    buffer.clear();
+                }
+            }
+            ' ' if nesting_level == 0 => {
+                if !buffer.is_empty() {
+                    items.push_back(read_string(&buffer.trim())?);
+                    buffer.clear();
+                }
+            }
+            _ => buffer.push(ch),
         }
-        if !buffer.is_empty() {
-            items.push_back(EDN::read_string(&buffer.trim())?);
-        }
-        Ok(items)
     }
+    if !buffer.is_empty() {
+        items.push_back(read_string(&buffer.trim())?);
+    }
+    Ok(items)
 }
 
 impl fmt::Display for EDN {
@@ -299,7 +297,7 @@ fn main() {
         "{1 2 2 4}",
         "{\"first-name\" \"Sonny\" \"last-name\" \"Su\"}",
         "#{1 2}",
-	"#",
+        "#",
         "#{{1 2} {3 4}}",
         "#{{:a :b} {:c :d}}",
         "nil",
@@ -334,7 +332,7 @@ fn main() {
     ];
 
     for example in examples {
-        match EDN::read_string(example) {
+        match read_string(example) {
             Ok(edn) => println!("Parsed: {} -> {:?}", example, edn),
             Err(e) => println!("Error: {} -> {}", example, e),
         }
@@ -356,7 +354,7 @@ mod tests {
             EDN::Integer(BigInt::from(1)),
         ]));
 
-        match EDN::read_string(input) {
+        match read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
         }
@@ -374,7 +372,7 @@ mod tests {
             EDN::Integer(BigInt::from(4)),
         ]));
 
-        match EDN::read_string(input) {
+        match read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
         }
@@ -393,7 +391,7 @@ mod tests {
             EDN::Integer(BigInt::from(5)),
         ]));
 
-        match EDN::read_string(input) {
+        match read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
         }
@@ -408,7 +406,7 @@ mod tests {
         let expected = EDN::Map(expected_map);
         println!("expected={:?}", expected);
 
-        match EDN::read_string(input) {
+        match read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
         }
@@ -430,7 +428,7 @@ mod tests {
 
         let expected = EDN::Set(expected_set);
 
-        match EDN::read_string(input) {
+        match read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
             Err(e) => panic!("Failed to parse '{}': {}", input, e),
         }
