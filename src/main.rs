@@ -6,6 +6,9 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
+//function that takes variable number of arguments
+type VariadicFunction = fn(&[i32]) -> i32;
+
 #[derive(Debug, Clone)]
 enum EDN {
     Nil,
@@ -289,8 +292,64 @@ impl fmt::Display for EDN {
     }
 }
 
-fn eval(edn: EDN) -> Result<EDN, String>{
+struct Context {
+    symbol_table: HashMap<EDN, EDN>,
+}
+
+impl Context {
+    fn new() -> Self {
+        Self {
+            symbol_table: HashMap::new(),
+        }
+    }
+    fn insert(&mut self, key: EDN, value: EDN) -> Option<EDN> {
+        self.symbol_table.insert(key, value)
+    }
+
+    // Method to get a value by key
+    fn get(&self, key: &EDN) -> Option<&EDN> {
+        self.symbol_table.get(key)
+    }
+
+    // Method to remove a key-value pair
+    fn remove(&mut self, key: &EDN) -> Option<EDN> {
+        self.symbol_table.remove(key)
+    }
+
+    // Method to check if a key exists
+    fn contains_key(&self, key: &EDN) -> bool {
+        self.symbol_table.contains_key(key)
+    }
+}
+
+fn eval(ctx: Context, edn: EDN) -> Result<EDN, String> {
+    match edn {
+        EDN::List(l) => {
+            let callable = l.front().unwrap();
+            match callable {
+                EDN::Symbol(s) => {
+                    println!("callable {:?}", ctx.get(callable));
+                }
+                _ => {
+                    return Err(format!("{} not callable",callable));
+                }
+            }
+        }
+        EDN::Map(m) => {
+            println!("map {:?}", m);
+        }
+        _ => println!("oh no"),
+    }
+
     Ok(EDN::Bool(true))
+}
+
+fn sum(args: &[i32]) -> i32 {
+    args.iter().sum()
+}
+
+fn average(args: &[i32]) -> i32{
+    1
 }
 
 fn main() {
@@ -341,10 +400,20 @@ fn main() {
     //         Err(e) => println!("Error: {} -> {}", example, e),
     //     }
     // }
+    let mut ctx = Context {
+        symbol_table: HashMap::new(),
+    };
+    ctx.insert(EDN::Symbol("+".to_string()), EDN::String("plus".to_string()));
     let add = read_string("(+ 2 3)").unwrap();
     println!("add {:?}", add);
-    let foo = eval(add);
+    let foo = eval(ctx, add);
     println!("foo {:?}", foo);
+
+    let mut functions: HashMap<&str, VariadicFunction> = HashMap::new();
+    functions.insert("foo", sum);
+    functions.insert("bar", average);
+    println!("func {:?}", functions);
+
 }
 
 #[cfg(test)]
