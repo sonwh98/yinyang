@@ -331,7 +331,7 @@ fn eval(ctx: Context, edn: EDN) -> Result<EDN, String> {
                     println!("callable {:?}", ctx.get(callable));
                 }
                 _ => {
-                    return Err(format!("{} not callable",callable));
+                    return Err(format!("{} not callable", callable));
                 }
             }
         }
@@ -348,7 +348,7 @@ fn sum(args: &[i32]) -> i32 {
     args.iter().sum()
 }
 
-fn average(args: &[i32]) -> i32{
+fn average(args: &[i32]) -> i32 {
     1
 }
 
@@ -403,7 +403,10 @@ fn main() {
     let mut ctx = Context {
         symbol_table: HashMap::new(),
     };
-    ctx.insert(EDN::Symbol("+".to_string()), EDN::String("plus".to_string()));
+    ctx.insert(
+        EDN::Symbol("+".to_string()),
+        EDN::String("plus".to_string()),
+    );
     let add = read_string("(+ 2 3)").unwrap();
     println!("add {:?}", add);
     let foo = eval(ctx, add);
@@ -413,7 +416,6 @@ fn main() {
     functions.insert("foo", sum);
     functions.insert("bar", average);
     println!("func {:?}", functions);
-
 }
 
 #[cfg(test)]
