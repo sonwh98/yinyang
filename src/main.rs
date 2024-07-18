@@ -332,8 +332,18 @@ impl Context {
 fn eval(ctx: &Context, edn: &EDN) -> Result<EDN, String> {
     match edn {
         EDN::List(l) => {
-            if let Some(EDN::Symbol(s)) = l.front() {
-                println!("s={:?}", s)
+            if let Some(EDN::Symbol(fn_name)) = l.front() {
+                let fn_val = ctx.get(fn_name).unwrap();
+                println!("fn_name={:?} fn_val={:?}", fn_name, fn_val);
+                match fn_val {
+                    EDN::Function(f) => {
+                        let arg = read_string("[1 2]").unwrap();
+                        println!("f={:?}", f(arg));
+                    }
+                    _ => {
+                        println!("Not callable");
+                    }
+                }
             }
         }
         EDN::Map(m) => {
@@ -345,12 +355,8 @@ fn eval(ctx: &Context, edn: &EDN) -> Result<EDN, String> {
     Ok(EDN::Bool(true))
 }
 
-fn sum(args: &[i32]) -> i32 {
-    args.iter().sum()
-}
-
-fn average(args: &[i32]) -> i32 {
-    1
+fn sum(args: EDN) -> EDN {
+    return read_string("(a b c)").unwrap();
 }
 
 fn main() {
@@ -404,7 +410,9 @@ fn main() {
     let mut ctx = Context {
         symbol_table: HashMap::new(),
     };
-    ctx.insert("+".to_string(), EDN::String("plus".to_string()));
+    let fn_pt: fn(EDN) -> EDN = sum;
+    ctx.insert("+".to_string(), EDN::Function(fn_pt));
+    //ctx.insert("+".to_string(), EDN::String ("foo".to_string()));
     let add = read_string("(+ 2 3)").unwrap();
     println!("add {:?}", add);
     let foo = eval(&ctx, &add);
