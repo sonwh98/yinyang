@@ -22,6 +22,7 @@ enum EDN {
     Vector(Vector<EDN>),
     Map(HashMap<EDN, EDN>),
     Set(HashSet<EDN>),
+    Function(fn(EDN) -> EDN),
 }
 
 impl PartialEq for EDN {
@@ -97,6 +98,11 @@ impl Hash for EDN {
                 for item in s {
                     item.hash(state);
                 }
+            }
+            EDN::Function(f) => {
+                state.write_u8(11);
+                // Use the address of the function pointer for hashing
+                (f as *const _ as usize).hash(state);
             }
         }
     }
@@ -288,6 +294,7 @@ impl fmt::Display for EDN {
                 }
                 write!(f, "}}")
             }
+            EDN::Function(func) => write!(f, "Function({:p})", func),
         }
     }
 }
@@ -322,17 +329,11 @@ impl Context {
     }
 }
 
-fn eval(ctx: Context, edn: EDN) -> Result<EDN, String> {
+fn eval(ctx: &Context, edn: &EDN) -> Result<EDN, String> {
     match edn {
         EDN::List(l) => {
-            let callable = l.front().unwrap();
-            match callable {
-                EDN::Symbol(s) => {
-                    println!("callable {:?}", ctx.get(s));
-                }
-                _ => {
-                    return Err(format!("{} not callable", callable));
-                }
+            if let Some(EDN::Symbol(s)) = l.front() {
+                println!("s={:?}", s)
             }
         }
         EDN::Map(m) => {
@@ -403,19 +404,16 @@ fn main() {
     let mut ctx = Context {
         symbol_table: HashMap::new(),
     };
-    ctx.insert(
-        "+".to_string (),
-        EDN::String("plus".to_string()),
-    );
+    ctx.insert("+".to_string(), EDN::String("plus".to_string()));
     let add = read_string("(+ 2 3)").unwrap();
     println!("add {:?}", add);
-    let foo = eval(ctx, add);
+    let foo = eval(&ctx, &add);
     println!("foo {:?}", foo);
 
-    let mut functions: HashMap<&str, VariadicFunction> = HashMap::new();
-    functions.insert("foo", sum);
-    functions.insert("bar", average);
-    println!("func {:?}", functions);
+    // let mut functions: HashMap<&str, VariadicFunction> = HashMap::new();
+    // functions.insert("foo", sum);
+    // functions.insert("bar", average);
+    // println!("func {:?}", functions);
 }
 
 #[cfg(test)]
