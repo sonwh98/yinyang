@@ -293,7 +293,7 @@ impl fmt::Display for EDN {
 }
 
 struct Context {
-    symbol_table: HashMap<EDN, EDN>,
+    symbol_table: HashMap<String, EDN>,
 }
 
 impl Context {
@@ -302,22 +302,22 @@ impl Context {
             symbol_table: HashMap::new(),
         }
     }
-    fn insert(&mut self, key: EDN, value: EDN) -> Option<EDN> {
+    fn insert(&mut self, key: String, value: EDN) -> Option<EDN> {
         self.symbol_table.insert(key, value)
     }
 
     // Method to get a value by key
-    fn get(&self, key: &EDN) -> Option<&EDN> {
+    fn get(&self, key: &str) -> Option<&EDN> {
         self.symbol_table.get(key)
     }
 
     // Method to remove a key-value pair
-    fn remove(&mut self, key: &EDN) -> Option<EDN> {
+    fn remove(&mut self, key: &str) -> Option<EDN> {
         self.symbol_table.remove(key)
     }
 
     // Method to check if a key exists
-    fn contains_key(&self, key: &EDN) -> bool {
+    fn contains_key(&self, key: &str) -> bool {
         self.symbol_table.contains_key(key)
     }
 }
@@ -328,7 +328,7 @@ fn eval(ctx: Context, edn: EDN) -> Result<EDN, String> {
             let callable = l.front().unwrap();
             match callable {
                 EDN::Symbol(s) => {
-                    println!("callable {:?}", ctx.get(callable));
+                    println!("callable {:?}", ctx.get(s));
                 }
                 _ => {
                     return Err(format!("{} not callable", callable));
@@ -404,7 +404,7 @@ fn main() {
         symbol_table: HashMap::new(),
     };
     ctx.insert(
-        EDN::Symbol("+".to_string()),
+        "+".to_string (),
         EDN::String("plus".to_string()),
     );
     let add = read_string("(+ 2 3)").unwrap();
