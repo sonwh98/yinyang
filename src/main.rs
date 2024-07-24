@@ -1,9 +1,10 @@
 use bigdecimal::BigDecimal;
-use imbl::{HashMap, HashSet, Vector};
 use num_bigint::BigInt;
 use regex::Regex;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::ops::Add;
 use std::str::FromStr;
 
 //function that takes variable number of arguments
@@ -18,8 +19,8 @@ enum EDN {
     String(String),
     Symbol(String),
     Keyword(String),
-    List(Vector<EDN>),
-    Vector(Vector<EDN>),
+    List(Vec<EDN>),
+    Vector(Vec<EDN>),
     Map(HashMap<EDN, EDN>),
     Set(HashSet<EDN>),
     Function(fn(EDN) -> EDN),
@@ -40,6 +41,16 @@ impl PartialEq for EDN {
             (EDN::Map(m1), EDN::Map(m2)) => m1 == m2,
             (EDN::Set(s1), EDN::Set(s2)) => s1 == s2,
             _ => false,
+        }
+    }
+}
+impl Add for EDN {
+    type Output = Result<EDN, &'static str>;
+
+    fn add(self, other: EDN) -> Self::Output {
+        match (self, other) {
+            (EDN::Integer(a), EDN::Integer(b)) => Ok(EDN::Integer(a + b)),
+            _ => Err("Both EDN values must be Integer variants to perform addition."),
         }
     }
 }
@@ -211,8 +222,8 @@ pub fn read_string(input: &str) -> Result<EDN, String> {
     Err(format!("Unable to parse EDN: {}", input))
 }
 
-fn read_string_helper(input: &str) -> Result<Vector<EDN>, String> {
-    let mut items = Vector::new();
+fn read_string_helper(input: &str) -> Result<Vec<EDN>, String> {
+    let mut items = Vec::new();
     let mut buffer = String::new();
     let mut nesting_level = 0;
     for ch in input.chars() {
@@ -225,13 +236,13 @@ fn read_string_helper(input: &str) -> Result<Vector<EDN>, String> {
                 nesting_level -= 1;
                 buffer.push(ch);
                 if nesting_level == 0 {
-                    items.push_back(read_string(&buffer.trim())?);
+                    items.push(read_string(&buffer.trim())?);
                     buffer.clear();
                 }
             }
             ' ' if nesting_level == 0 => {
                 if !buffer.is_empty() {
-                    items.push_back(read_string(&buffer.trim())?);
+                    items.push(read_string(&buffer.trim())?);
                     buffer.clear();
                 }
             }
@@ -239,7 +250,7 @@ fn read_string_helper(input: &str) -> Result<Vector<EDN>, String> {
         }
     }
     if !buffer.is_empty() {
-        items.push_back(read_string(&buffer.trim())?);
+        items.push(read_string(&buffer.trim())?);
     }
     Ok(items)
 }
@@ -332,34 +343,50 @@ impl Context {
 fn eval(ctx: &Context, edn: &EDN) -> Result<EDN, String> {
     match edn {
         EDN::List(l) => {
-            if let Some(EDN::Symbol(fn_name)) = l.front() {
+            if let Some(EDN::Symbol(fn_name)) = l.first() {
                 let fn_val = ctx.get(fn_name).unwrap();
-                println!("fn_name={:?} fn_val={:?}", fn_name, fn_val);
+                let args = EDN::Vector(l[1..].to_vec());
+                //println!("fn_name={:?} fn_val={:?} args={:?}", fn_name, fn_val, args);
                 match fn_val {
                     EDN::Function(f) => {
-                        let arg = read_string("[1 2]").unwrap();
-                        println!("f={:?}", f(arg));
+                        return Ok(f(args));
                     }
                     _ => {
-                        println!("Not callable");
+                        return Err("Not callable".to_string());
                     }
                 }
+            } else {
+                return Err("else oops".to_string());
             }
         }
         EDN::Map(m) => {
             println!("map {:?}", m);
+            return Ok(EDN::Nil);
         }
-        _ => println!("oh no"),
+        _ => {
+            println!("oh no");
+            return Err("problem".to_string());
+        }
     }
-
-    Ok(EDN::Bool(true))
 }
 
-fn sum(args: EDN) -> EDN {
-    return read_string("(a b c)").unwrap();
+pub fn sum(edn: EDN) -> EDN {
+    match edn {
+        EDN::Vector(vec) => {
+            let a = vec.iter().fold(BigInt::from(0), |acc, item| {
+                if let EDN::Integer(ref num) = item {
+                    acc + num
+                } else {
+                    acc
+                }
+            });
+            return EDN::Integer(a);
+        }
+        _ => EDN::Integer(BigInt::from(0)),
+    }
 }
 
-fn main() {
+fn example() {
     let examples = vec![
         "(1 (2 3) 4)",
         "[1 2 [3 4] 5]",
@@ -401,22 +428,24 @@ fn main() {
         "(.. Foo (bar 1 2 3))",
     ];
 
-    // for example in examples {
-    //     match read_string(example) {
-    //         Ok(edn) => println!("Parsed: {} -> {:?}", example, edn),
-    //         Err(e) => println!("Error: {} -> {}", example, e),
-    //     }
-    // }
+    for example in examples {
+        match read_string(example) {
+            Ok(edn) => println!("Parsed: {} -> {:?}", example, edn),
+            Err(e) => println!("Error: {} -> {}", example, e),
+        }
+    }
+}
+
+fn main() {
+    //example();
     let mut ctx = Context {
         symbol_table: HashMap::new(),
     };
-    let fn_pt: fn(EDN) -> EDN = sum;
-    ctx.insert("+".to_string(), EDN::Function(fn_pt));
-    //ctx.insert("+".to_string(), EDN::String ("foo".to_string()));
-    let add = read_string("(+ 2 3)").unwrap();
-    println!("add {:?}", add);
-    let foo = eval(&ctx, &add);
-    println!("foo {:?}", foo);
+
+    ctx.insert("+".to_string(), EDN::Function(sum));
+    let add = read_string("(+ 1 2 3 4 5 6)").unwrap();
+    let e = eval(&ctx, &add).unwrap();
+    println!("e= {:?}", e);
 
     // let mut functions: HashMap<&str, VariadicFunction> = HashMap::new();
     // functions.insert("foo", sum);
@@ -427,17 +456,18 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use imbl::Vector;
     use num_bigint::BigInt;
 
     #[test]
     fn test_read_string_simple_addition() {
         let input = "(+ 1 1)";
-        let expected = EDN::List(Vector::from(vec![
-            EDN::Symbol("+".to_string()),
-            EDN::Integer(BigInt::from(1)),
-            EDN::Integer(BigInt::from(1)),
-        ]));
+        let expected = EDN::List(
+            (vec![
+                EDN::Symbol("+".to_string()),
+                EDN::Integer(BigInt::from(1)),
+                EDN::Integer(BigInt::from(1)),
+            ]),
+        );
 
         match read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
@@ -448,14 +478,13 @@ mod tests {
     #[test]
     fn test_read_string_nested_list() {
         let input = "(1 (2 3) 4)";
-        let expected = EDN::List(Vector::from(vec![
-            EDN::Integer(BigInt::from(1)),
-            EDN::List(Vector::from(vec![
-                EDN::Integer(BigInt::from(2)),
-                EDN::Integer(BigInt::from(3)),
-            ])),
-            EDN::Integer(BigInt::from(4)),
-        ]));
+        let expected = EDN::List(
+            (vec![
+                EDN::Integer(BigInt::from(1)),
+                EDN::List((vec![EDN::Integer(BigInt::from(2)), EDN::Integer(BigInt::from(3))])),
+                EDN::Integer(BigInt::from(4)),
+            ]),
+        );
 
         match read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
@@ -466,15 +495,15 @@ mod tests {
     #[test]
     fn test_read_string_vector() {
         let input = "[1 2 [3 4] 5]";
-        let expected = EDN::Vector(Vector::from(vec![
+        let expected = EDN::Vector(vec![
             EDN::Integer(BigInt::from(1)),
             EDN::Integer(BigInt::from(2)),
-            EDN::Vector(Vector::from(vec![
+            EDN::Vector(vec![
                 EDN::Integer(BigInt::from(3)),
                 EDN::Integer(BigInt::from(4)),
-            ])),
+            ]),
             EDN::Integer(BigInt::from(5)),
-        ]));
+        ]);
 
         match read_string(input) {
             Ok(parsed) => assert_eq!(parsed, expected),
