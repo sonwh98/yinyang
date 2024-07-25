@@ -7,9 +7,6 @@ use std::hash::{Hash, Hasher};
 use std::ops::Add;
 use std::str::FromStr;
 
-//function that takes variable number of arguments
-type VariadicFunction = fn(&[i32]) -> i32;
-
 #[derive(Debug, Clone)]
 enum EDN {
     Nil,
@@ -446,11 +443,6 @@ fn main() {
     let add = read_string("(+ 1 2 3 4 5 6)").unwrap();
     let e = eval(&ctx, &add).unwrap();
     println!("e= {:?}", e);
-
-    // let mut functions: HashMap<&str, VariadicFunction> = HashMap::new();
-    // functions.insert("foo", sum);
-    // functions.insert("bar", average);
-    // println!("func {:?}", functions);
 }
 
 #[cfg(test)]
