@@ -8,7 +8,7 @@ use std::ops::Add;
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
-enum EDN {
+pub enum EDN {
     Nil,
     Bool(bool),
     Integer(BigInt),
@@ -206,11 +206,11 @@ pub fn read_string(input: &str) -> Result<EDN, String> {
 
     let symbol_regex = Regex::new(
         r"(?x)                      # Enable verbose mode
-        [\w.!@$%^&|=<>?+/~-]            # Match a single character from this set
-        [-a-zA-Z0-9_!@$%^&|=<>?.+/~-]*  # Match zero or more characters from this set
-        ",
+    [\w.!@$%^&|=<>?+/~*^-]           # Match a single character from this set
+    [-a-zA-Z0-9_!@$%^&|=<>?.+/~*^-]* # Match zero or more characters from this set
+    ",
     )
-    .unwrap();
+	.unwrap();
 
     if symbol_regex.is_match(input) {
         return Ok(EDN::Symbol(input.to_string()));
@@ -307,35 +307,7 @@ impl fmt::Display for EDN {
     }
 }
 
-struct Context {
-    symbol_table: HashMap<String, EDN>,
-}
-
-impl Context {
-    fn new() -> Self {
-        Self {
-            symbol_table: HashMap::new(),
-        }
-    }
-    fn insert(&mut self, key: String, value: EDN) -> Option<EDN> {
-        self.symbol_table.insert(key, value)
-    }
-
-    // Method to get a value by key
-    fn get(&self, key: &str) -> Option<&EDN> {
-        self.symbol_table.get(key)
-    }
-
-    // Method to remove a key-value pair
-    fn remove(&mut self, key: &str) -> Option<EDN> {
-        self.symbol_table.remove(key)
-    }
-
-    // Method to check if a key exists
-    fn contains_key(&self, key: &str) -> bool {
-        self.symbol_table.contains_key(key)
-    }
-}
+type Context = HashMap<String, EDN>;
 
 fn eval(ctx: &Context, edn: &EDN) -> Result<EDN, String> {
     match edn {
@@ -383,7 +355,23 @@ pub fn sum(edn: EDN) -> EDN {
     }
 }
 
-fn example() {
+pub fn mul(edn: EDN) -> EDN {
+    match edn {
+        EDN::Vector(vec) => {
+            let a = vec.iter().fold(BigInt::from(1), |acc, item| {
+                if let EDN::Integer(ref num) = item {
+                    acc * num
+                } else {
+                    acc
+                }
+            });
+            return EDN::Integer(a);
+        }
+        _ => EDN::Integer(BigInt::from(0)),
+    }
+}
+
+fn read_string_example() {
     let examples = vec![
         "(1 (2 3) 4)",
         "[1 2 [3 4] 5]",
@@ -391,7 +379,6 @@ fn example() {
         "{1 2 2 4}",
         "{\"first-name\" \"Sonny\" \"last-name\" \"Su\"}",
         "#{1 2}",
-        "#",
         "#{{1 2} {3 4}}",
         "#{{:a :b} {:c :d}}",
         "nil",
@@ -433,16 +420,27 @@ fn example() {
     }
 }
 
-fn main() {
-    //example();
-    let mut ctx = Context {
-        symbol_table: HashMap::new(),
-    };
+fn eval_examples(){
+    let mut ctx =  HashMap::new();
 
     ctx.insert("+".to_string(), EDN::Function(sum));
+    ctx.insert("-".to_string(), EDN::Function(sum));
+    ctx.insert("*".to_string(), EDN::Function(mul));
     let add = read_string("(+ 1 2 3 4 5 6)").unwrap();
-    let e = eval(&ctx, &add).unwrap();
-    println!("e= {:?}", e);
+    let mul = read_string("(* 1 2 3 4 5 6)").unwrap();
+    let sub = read_string("(- 1 2 3 4 5 6)").unwrap();
+    let a = eval(&ctx, &add).unwrap();
+    let m = eval(&ctx, &mul).unwrap();
+    let s = eval(&ctx, &sub).unwrap();
+    println!("a= {:?} m={:?} s={:?}", a, m, s);
+
+    read_string("(defn add [a b] (+ a b))").unwrap();
+    
+}
+
+fn main() {
+    read_string_example();
+    eval_examples();
 }
 
 #[cfg(test)]
