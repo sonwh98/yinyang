@@ -6,6 +6,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Add;
 use std::str::FromStr;
+use std::io::{self, Write};
 
 #[derive(Debug, Clone)]
 pub enum EDN {
@@ -438,9 +439,39 @@ fn eval_examples(){
     
 }
 
+fn repl() {
+    let mut ctx =  HashMap::new();
+    ctx.insert("+".to_string(), EDN::Function(sum));
+    
+    loop {
+        print!("repl> ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim();
+
+        if input == ":clj/quit" {
+            break;
+        }
+
+	let parsed_edn = read_string(input);
+        match parsed_edn {
+            Ok(edn) => {
+                let result = eval(&ctx, &edn);
+                println!("{:?}", result);
+            }
+            Err(err) => {
+                eprintln!("Error reading input: {:?}", err);
+            }
+        }
+    }
+}
+
 fn main() {
-    read_string_example();
-    eval_examples();
+    //read_string_example();
+    //eval_examples();
+    repl();
 }
 
 #[cfg(test)]
