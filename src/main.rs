@@ -324,26 +324,24 @@ fn eval(ctx: &mut Context, edn: &EDN) -> Result<EDN, String> {
                         return Ok(var_val.clone());
                     }
                     _ => {
-                        return Ok(EDN::Nil);
+                        let sym_val = ctx.get(sym).unwrap_or(&EDN::Nil);
+                        println!("sym={:?} sym_val={:?}", sym, sym_val);
+                        match sym_val {
+                            EDN::Function(f) => {
+                                let args = EDN::Vector(l[1..].to_vec());
+                                return Ok(f(args));
+                            }
+                            // EDN::Symbol(s) => {
+                            //     println!("s={:?}", s);
+                            //     return Ok(EDN::Nil);
+                            // }
+                            _ => {
+                                return Err("Not callable".to_string());
+                            }
+                        }
+                        
                     }
                 }
-
-                // let sym_val = ctx.get(sym).unwrap_or(&EDN::Nil);
-
-                // println!("sym={:?} sym_val={:?}", sym, sym_val);
-                // match sym_val {
-                //     EDN::Function(f) => {
-                // 	let args = EDN::Vector(l[1..].to_vec());
-                //         return Ok(f(args));
-                //     }
-                //     EDN::Symbol(s) => {
-                // 	println!("s={:?}",s);
-                // 	return Ok(EDN::Nil);
-                //     }
-                //     _ => {
-                //         return Err("Not callable".to_string());
-                //     }
-                // }
             } else {
                 return Err("else oops".to_string());
             }
@@ -483,13 +481,12 @@ fn repl() {
 
         let mut input = String::new();
 
-        io::stdin().read_line(&mut input).unwrap();
-
-        let input = input.trim();
-
-        if input == ":clj/quit" {
-            break;
-        }
+        let bytes_read = io::stdin().read_line(&mut input).unwrap();
+	let input = input.trim();
+	let ctrl_d = 0;
+	if bytes_read == ctrl_d || input == ":clj/quit" {
+	    break;
+	}
 
         let parsed_edn = read_string(input);
         match parsed_edn {
