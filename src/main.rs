@@ -4,9 +4,9 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use std::io::{self, Write};
 use std::ops::Add;
 use std::str::FromStr;
-use std::io::{self, Write};
 
 #[derive(Debug, Clone)]
 pub enum EDN {
@@ -211,7 +211,7 @@ pub fn read_string(input: &str) -> Result<EDN, String> {
     [-a-zA-Z0-9_!@$%^&|=<>?.+/~*^-]* # Match zero or more characters from this set
     ",
     )
-	.unwrap();
+    .unwrap();
 
     if symbol_regex.is_match(input) {
         return Ok(EDN::Symbol(input.to_string()));
@@ -310,32 +310,67 @@ impl fmt::Display for EDN {
 
 type Context = HashMap<String, EDN>;
 
-fn eval(ctx: &Context, edn: &EDN) -> Result<EDN, String> {
+fn eval(ctx: &mut Context, edn: &EDN) -> Result<EDN, String> {
     match edn {
         EDN::List(l) => {
-            if let Some(EDN::Symbol(fn_name)) = l.first() {
-                let fn_val = ctx.get(fn_name).unwrap();
-                let args = EDN::Vector(l[1..].to_vec());
-                //println!("fn_name={:?} fn_val={:?} args={:?}", fn_name, fn_val, args);
-                match fn_val {
-                    EDN::Function(f) => {
-                        return Ok(f(args));
+            if let Some(EDN::Symbol(sym)) = l.first() {
+                match sym.as_str() {
+                    "def" => {
+                        let var = &l[1];
+                        let var_val = &l[2];
+                        if let EDN::Symbol(v) = var {
+                            ctx.insert(v.clone(), var_val.clone());
+                        }
+                        return Ok(var_val.clone());
                     }
                     _ => {
-                        return Err("Not callable".to_string());
+                        return Ok(EDN::Nil);
                     }
                 }
+
+                // let sym_val = ctx.get(sym).unwrap_or(&EDN::Nil);
+
+                // println!("sym={:?} sym_val={:?}", sym, sym_val);
+                // match sym_val {
+                //     EDN::Function(f) => {
+                // 	let args = EDN::Vector(l[1..].to_vec());
+                //         return Ok(f(args));
+                //     }
+                //     EDN::Symbol(s) => {
+                // 	println!("s={:?}",s);
+                // 	return Ok(EDN::Nil);
+                //     }
+                //     _ => {
+                //         return Err("Not callable".to_string());
+                //     }
+                // }
             } else {
                 return Err("else oops".to_string());
             }
         }
-        EDN::Map(m) => {
-            println!("map {:?}", m);
-            return Ok(EDN::Nil);
+        EDN::Symbol(s) => {
+            let sym_val = ctx.get(s);
+
+            if let Some(v) = sym_val {
+                return Ok(v.clone());
+            } else {
+                println!("Unable to resolve {:?}", edn);
+                return Ok(EDN::Nil);
+            }
+        }
+        EDN::Bool(_)
+        | EDN::Integer(_)
+        | EDN::Float(_)
+        | EDN::String(_)
+        | EDN::Keyword(_)
+        | EDN::Vector(_)
+        | EDN::Map(_)
+        | EDN::Set(_) => {
+            return Ok(edn.clone());
         }
         _ => {
-            println!("oh no");
-            return Err("problem".to_string());
+            println!("Error");
+            return Ok(EDN::Nil);
         }
     }
 }
@@ -421,8 +456,8 @@ fn read_string_example() {
     }
 }
 
-fn eval_examples(){
-    let mut ctx =  HashMap::new();
+fn eval_examples() {
+    let mut ctx = HashMap::new();
 
     ctx.insert("+".to_string(), EDN::Function(sum));
     ctx.insert("-".to_string(), EDN::Function(sum));
@@ -430,36 +465,44 @@ fn eval_examples(){
     let add = read_string("(+ 1 2 3 4 5 6)").unwrap();
     let mul = read_string("(* 1 2 3 4 5 6)").unwrap();
     let sub = read_string("(- 1 2 3 4 5 6)").unwrap();
-    let a = eval(&ctx, &add).unwrap();
-    let m = eval(&ctx, &mul).unwrap();
-    let s = eval(&ctx, &sub).unwrap();
+    let a = eval(&mut ctx, &add).unwrap();
+    let m = eval(&mut ctx, &mul).unwrap();
+    let s = eval(&mut ctx, &sub).unwrap();
     println!("a= {:?} m={:?} s={:?}", a, m, s);
 
     read_string("(defn add [a b] (+ a b))").unwrap();
-    
 }
 
 fn repl() {
-    let mut ctx =  HashMap::new();
+    let mut ctx = HashMap::new();
     ctx.insert("+".to_string(), EDN::Function(sum));
-    
+
     loop {
         print!("repl> ");
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
+
         io::stdin().read_line(&mut input).unwrap();
+
         let input = input.trim();
 
         if input == ":clj/quit" {
             break;
         }
 
-	let parsed_edn = read_string(input);
+        let parsed_edn = read_string(input);
         match parsed_edn {
             Ok(edn) => {
-                let result = eval(&ctx, &edn);
-                println!("{:?}", result);
+                let result = eval(&mut ctx, &edn);
+                match result {
+                    Ok(edn) => {
+                        println!("{}", edn);
+                    }
+                    Err(err) => {
+                        println!("cannot eval {:?}", edn);
+                    }
+                }
             }
             Err(err) => {
                 eprintln!("Error reading input: {:?}", err);
