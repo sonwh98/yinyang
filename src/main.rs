@@ -313,38 +313,40 @@ type Context = HashMap<String, EDN>;
 fn eval(ctx: &mut Context, edn: &EDN) -> Result<EDN, String> {
     match edn {
         EDN::List(l) => {
-            if let Some(EDN::Symbol(sym)) = l.first() {
-                match sym.as_str() {
-                    "def" => {
-                        let var = &l[1];
-                        let var_val = &l[2];
-                        if let EDN::Symbol(v) = var {
-                            ctx.insert(v.clone(), var_val.clone());
-                        }
-                        return Ok(var_val.clone());
+            let f = l.first();
+            if let Some(EDN::Symbol(sym)) = f {
+                if sym.as_str() == "def" {
+                    let var = &l[1];
+                    let var_val = &l[2];
+                    if let EDN::Symbol(v) = var {
+                        ctx.insert(
+                            v.clone(),
+                            eval(&mut ctx.clone(), var_val).unwrap_or(EDN::Nil),
+                        );
                     }
-                    _ => {
-                        let sym_val = ctx.get(sym).unwrap_or(&EDN::Nil);
-                        println!("sym={:?} sym_val={:?}", sym, sym_val);
-                        match sym_val {
-                            EDN::Function(f) => {
-                                let args = EDN::Vector(l[1..].to_vec());
-                                return Ok(f(args));
-                            }
-                            _ => {
-                                return Err("Not callable".to_string());
-                            }
+                    return Ok(var_val.clone());
+                } else {
+                    let sym_val = ctx.get(sym).unwrap_or(&EDN::Nil);
+                    match sym_val {
+                        EDN::Function(fun) => {
+                            let args = l[1..].to_vec();
+                            let eval_args: Vec<EDN> = args
+                                .iter()
+                                .map(|a| eval(&mut ctx.clone(), a).unwrap_or(EDN::Nil))
+                                .collect();
+                            let args_edn = EDN::Vector(eval_args);
+                            return Ok(fun(args_edn));
                         }
-                        
+                        _ => {
+                            return Err("don't know how to eval".to_string());
+                        }
                     }
                 }
-            } else {
-                return Err("else oops".to_string());
             }
+            return Ok(EDN::Nil);
         }
         EDN::Symbol(s) => {
             let sym_val = ctx.get(s);
-
             if let Some(v) = sym_val {
                 return Ok(v.clone());
             } else {
@@ -478,11 +480,11 @@ fn repl() {
         let mut input = String::new();
 
         let bytes_read = io::stdin().read_line(&mut input).unwrap();
-	let input = input.trim();
-	let ctrl_d = 0;
-	if bytes_read == ctrl_d || input == ":clj/quit" {
-	    break;
-	}
+        let input = input.trim();
+        let ctrl_d = 0;
+        if bytes_read == ctrl_d || input == ":clj/quit" {
+            break;
+        }
 
         let parsed_edn = read_string(input);
         match parsed_edn {
