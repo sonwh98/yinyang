@@ -331,10 +331,6 @@ fn eval(ctx: &mut Context, edn: &EDN) -> Result<EDN, String> {
                                 let args = EDN::Vector(l[1..].to_vec());
                                 return Ok(f(args));
                             }
-                            // EDN::Symbol(s) => {
-                            //     println!("s={:?}", s);
-                            //     return Ok(EDN::Nil);
-                            // }
                             _ => {
                                 return Err("Not callable".to_string());
                             }
