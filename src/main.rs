@@ -492,7 +492,7 @@ fn repl() {
                     Ok(edn) => {
                         println!("{}", edn);
                     }
-                    Err(err) => {
+                    Err(_) => {o
                         println!("cannot eval {:?}", edn);
                     }
                 }
