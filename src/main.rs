@@ -144,7 +144,7 @@ fn parse_edn_value<'a, I: Iterator<Item = &'a str>>(iter: &mut I) -> Result<EDN,
 pub fn read_string(input: &str) -> Result<EDN, String> {
     let input = input.trim();
 
-    if input == "nil" {
+    if input == "nil" || input.is_empty(){
         return Ok(EDN::Nil);
     }
 
