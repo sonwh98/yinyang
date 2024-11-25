@@ -117,10 +117,7 @@ impl Hash for EDN {
     }
 }
 
-fn parse_edn_value<'a, I>(iter: &mut I) -> Result<EDN, String>
-where
-    I: Iterator<Item = &'a str>,
-{
+fn parse_edn_value<'a, I: Iterator<Item = &'a str>>(iter: &mut I) -> Result<EDN, String> {
     if let Some(token) = iter.next() {
         if token.starts_with(':') {
             Ok(EDN::Keyword(token[1..].to_string()))
@@ -355,6 +352,7 @@ fn eval(ctx: &mut Context, edn: &EDN) -> Result<EDN, String> {
             }
         }
         EDN::Bool(_)
+        | EDN::Nil
         | EDN::Integer(_)
         | EDN::Float(_)
         | EDN::String(_)
