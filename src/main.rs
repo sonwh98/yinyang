@@ -143,8 +143,9 @@ fn parse_edn_value<'a, I: Iterator<Item = &'a str>>(iter: &mut I) -> Result<EDN,
 
 pub fn read_string(input: &str) -> Result<EDN, String> {
     let input = input.trim();
+    println!("foo1 {:?}", input);
 
-    if input == "nil" || input.is_empty(){
+    if input == "nil" || input.is_empty() {
         return Ok(EDN::Nil);
     }
 
@@ -161,26 +162,29 @@ pub fn read_string(input: &str) -> Result<EDN, String> {
     }
 
     if input.starts_with('"') && input.ends_with('"') {
+        println!("foo2 ");
         let content = &input[1..input.len() - 1];
+        println!("foo-string {:?}", content);
         return Ok(EDN::String(content.to_string()));
     }
 
+    println!("foo3 ");
     if input.starts_with(':') {
         return Ok(EDN::Keyword(input.to_string()));
     }
-
+    println!("foo4 ");
     if input.starts_with('(') && input.ends_with(')') {
         let items = &input[1..input.len() - 1];
         let parsed_items = read_string_helper(items)?;
         return Ok(EDN::List(parsed_items));
     }
-
+    println!("foo4 ");
     if input.starts_with('[') && input.ends_with(']') {
         let items = &input[1..input.len() - 1];
         let parsed_items = read_string_helper(items)?;
         return Ok(EDN::Vector(parsed_items));
     }
-
+    println!("foo5 ");
     if input.starts_with('{') && input.ends_with('}') {
         let content = &input[1..input.len() - 1];
         let mut map = HashMap::new();
@@ -193,7 +197,7 @@ pub fn read_string(input: &str) -> Result<EDN, String> {
         }
         return Ok(EDN::Map(map));
     }
-
+    println!("foo6 ");
     if input.starts_with("#{") && input.ends_with('}') {
         let items = &input[2..input.len() - 1];
         let parsed_items = read_string_helper(items)?
@@ -201,7 +205,7 @@ pub fn read_string(input: &str) -> Result<EDN, String> {
             .collect::<HashSet<_>>();
         return Ok(EDN::Set(parsed_items));
     }
-
+    println!("foo7 ");
     let symbol_regex = Regex::new(
         r"(?x)                      # Enable verbose mode
     [\w.!@$%^&|=<>?+/~*^-]           # Match a single character from this set
@@ -210,11 +214,17 @@ pub fn read_string(input: &str) -> Result<EDN, String> {
     )
     .unwrap();
 
+    println!("foo8 ");
     if symbol_regex.is_match(input) {
         return Ok(EDN::Symbol(input.to_string()));
     }
-
+    println!("foo9 ");
     Err(format!("Unable to parse EDN: {}", input))
+}
+
+pub fn read_string2(s: EDN) -> EDN {
+    println!("read-string {:?}", s);
+    return EDN::String("wassup".to_string());
 }
 
 fn read_string_helper(input: &str) -> Result<Vec<EDN>, String> {
@@ -470,6 +480,7 @@ fn eval_examples() {
 fn repl() {
     let mut ctx = HashMap::new();
     ctx.insert("+".to_string(), EDN::Function(sum));
+    ctx.insert("read-string".to_string(), EDN::Function(read_string2));
 
     loop {
         print!("repl> ");
@@ -492,7 +503,7 @@ fn repl() {
                     Ok(edn) => {
                         println!("{}", edn);
                     }
-                    Err(_) => {o
+                    Err(_) => {
                         println!("cannot eval {:?}", edn);
                     }
                 }
