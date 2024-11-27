@@ -301,7 +301,7 @@ impl fmt::Display for EDN {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{} {}", k, v)?;
+                    write!(f, ":{} {}", k, v)?;
                 }
                 write!(f, "}}")
             }
