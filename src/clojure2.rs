@@ -1,6 +1,7 @@
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use regex::Regex;
+use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -242,29 +243,48 @@ fn parse_string(astr: &str) -> Result<EDN, String> {
 }
 // (def a 1 (def b 2))
 fn parse_list(astr: &str) -> Result<EDN, String> {
-    println!("plist astr={}", astr);
-    parse_list_helper(&mut astr.chars(), &mut Vec::new())
+    if astr.starts_with('(') {
+        parse_list_helper(&mut astr.chars(), &mut Vec::new())
+    } else {
+        return Err("cannot parse list".to_string());
+    }
 }
 
 fn parse_list_helper(astr_iter: &mut Chars, items: &mut Vec<EDN>) -> Result<EDN, String> {
     let mut nesting_level = 0;
     let mut buffer = String::new();
     while let Some(ch) = astr_iter.next() {
+        println!(
+            "buffer={:?} ch={:?} nesting_level={:?} items={:?}",
+            buffer, ch, nesting_level, items
+        );
         match ch {
             '(' if nesting_level == 0 => {
                 nesting_level += 1;
+                println!(
+                    "buffer2={:?} ch={:?} nesting_level={:?} items={:?}",
+                    buffer, ch, nesting_level, items
+                );
             }
             '(' if nesting_level > 0 => {
                 nesting_level += 1;
                 let l = parse_list_helper(astr_iter, &mut Vec::new());
-                //items.extend(l.unwrap());
+                println!("foo={:?}", l);
+                items.extend(l);
             }
             ')' => {
                 nesting_level -= 1;
+                println!(
+                    "buffer3={:?} ch={:?} nesting_level={:?} items={:?}",
+                    buffer, ch, nesting_level, items
+                );
                 if nesting_level == 0 {
                     let token_iterator = buffer.split_whitespace();
                     let edn_tokens: Vec<EDN> = token_iterator
-                        .map(|token| read_string(token).unwrap())
+                        .map(|token| {
+                            println!("token={:?}", token);
+                            return read_string(token).unwrap();
+                        })
                         .collect();
                     items.extend(edn_tokens);
                     buffer.clear();
