@@ -315,7 +315,7 @@ fn parse_list_helper(
                     break;
                 }
             }
-            ' ' => {
+            ' ' | ',' => {
                 if !buffer.is_empty() {
                     let edn_val = read_string(&buffer.trim()).unwrap();
                     items.push(edn_val);
