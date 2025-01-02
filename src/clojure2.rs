@@ -293,77 +293,39 @@ fn parse_list_helper(
 ) -> Result<EDN, String> {
     let mut buffer = String::new();
     let mut index = 0;
-    println!(
-        "buffer1={:?} nesting_level={:?} items={:?}",
-        buffer, nesting_level, items
-    );
-    while let Some(ch) = astr_iter.next() {
-        println!(
-            "buffer-loop1={:?} ch={:?} nesting_level={:?} items={:?}",
-            buffer, ch, nesting_level, items
-        );
 
+    while let Some(ch) = astr_iter.next() {
         match ch {
             '(' => {
                 if nesting_level > 0 {
-                    println!(
-                        "buffer-loop2={:?} ch={:?} nesting_level={:?} items={:?}",
-                        buffer, ch, nesting_level, items
-                    );
                     let a_list = parse_list_helper(astr_iter, 1, &mut Vec::new());
-		    println!("a_list={:?}", a_list);
                     items.extend(a_list);
-                    println!(
-                        "buffer-loop2.1={:?} ch={:?} nesting_level={:?} items={:?}",
-                        buffer, ch, nesting_level, items
-                    );
                 } else {
-                    println!(
-                        "buffer-loop2.2={:?} ch={:?} nesting_level={:?} items={:?}",
-                        buffer, ch, nesting_level, items
-                    );
                     nesting_level += 1;
-                    println!(
-                        "buffer-loop2.3={:?} ch={:?} nesting_level={:?} items={:?}",
-                        buffer, ch, nesting_level, items
-                    );
                 }
             }
             ')' => {
-                println!(
-                    "buffer-loop4={:?} ch={:?} nesting_level={:?} items={:?}",
-                    buffer, ch, nesting_level, items
-                );
                 nesting_level -= 1;
-		if !buffer.is_empty(){
+                if !buffer.is_empty() {
                     let edn_val = read_string(&buffer.trim()).unwrap();
                     items.push(edn_val);
-		}
+                }
                 buffer.clear();
-                println!(
-                    "buffer-loop4.1={:?} ch={:?} nesting_level={:?} items={:?}",
-                    buffer, ch, nesting_level, items
-                );
-		if nesting_level == 0{
-		    break;
-		}
+                if nesting_level == 0 {
+                    break;
+                }
             }
             ' ' => {
-		if !buffer.is_empty(){
+                if !buffer.is_empty() {
                     let edn_val = read_string(&buffer.trim()).unwrap();
                     items.push(edn_val);
-		    buffer.clear();
-		}
-                
+                    buffer.clear();
+                }
             }
             _ => buffer.push(ch),
         }
     }
 
-    println!(
-        "buffer2={:?} nesting_level={:?} items={:?}",
-        buffer, nesting_level, items
-    );
     if !buffer.is_empty() {
         let token_iterator = buffer.split_whitespace();
         let mut edn_tokens: Vec<EDN> = token_iterator
@@ -372,10 +334,8 @@ fn parse_list_helper(
             })
             .collect();
         let a_list = EDN::List(edn_tokens.clone());
-        println!("a_list={:?} items={:?}", a_list, items);
         return Ok(into(&a_list, &items[0]));
     } else {
-        println!("item2={:?}", items);
         return Ok(EDN::List(items.to_vec()));
     }
 }
