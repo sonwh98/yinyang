@@ -327,20 +327,6 @@ fn parse_seq_helper(
     }
 
     return Ok(EDN::List(items.to_vec()));
-    
-    // if !buffer.is_empty() {
-    // 	println!("buffer-foo={:?}",buffer);
-    //     let token_iterator = buffer.split_whitespace();
-    //     let mut edn_tokens: Vec<EDN> = token_iterator
-    //         .map(|token| {
-    //             return read_string(token).unwrap();
-    //         })
-    //         .collect();
-    //     let a_list = EDN::List(edn_tokens.clone());
-    //     return Ok(into(&a_list, &items[0]));
-    // } else {
-    //     return Ok(EDN::List(items.to_vec()));
-    // }
 }
 
 pub fn read_string(astr: &str) -> Result<EDN, String> {
