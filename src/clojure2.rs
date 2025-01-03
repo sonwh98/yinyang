@@ -336,37 +336,40 @@ fn parse_vector_helper(
     items: &mut Vec<EDN>,
 ) -> Result<EDN, String> {
     let mut buffer = String::new();
-    let mut index = 0;
 
     while let Some(ch) = astr_iter.next() {
-        match ch {
-            '[' => {
-                if nesting_level > 0 {
-                    let a_list = parse_vector_helper(astr_iter, 1, &mut Vec::new());
-                    items.extend(a_list);
-                } else {
-                    nesting_level += 1;
-                }
+        if ch != ' ' && ch != ',' && ch.to_string()!="]" {
+            buffer.push(ch);
+        }
+
+        println!(
+            "ch={:?} buffer={:?} level={:?} items={:?}",
+            ch, buffer, nesting_level, items
+        );
+        if buffer == "[" {
+            if nesting_level > 0 {
+                let a_list = parse_vector_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_list);
+            } else {
+                nesting_level += 1;
             }
-            ']' => {
-                nesting_level -= 1;
-                if !buffer.is_empty() {
-                    let edn_val = read_string(&buffer.trim()).unwrap();
-                    items.push(edn_val);
-                }
+            buffer.clear();
+        } else if ch.to_string() == "]" {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ' ' || ch == ',' {
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
                 buffer.clear();
-                if nesting_level == 0 {
-                    break;
-                }
             }
-            ' ' | ',' => {
-                if !buffer.is_empty() {
-                    let edn_val = read_string(&buffer.trim()).unwrap();
-                    items.push(edn_val);
-                    buffer.clear();
-                }
-            }
-            _ => buffer.push(ch),
         }
     }
 
