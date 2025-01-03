@@ -304,7 +304,7 @@ fn parse_seq_helper(
                     nesting_level += 1;
                 }
             }
-            ')' | ']'=> {
+            ')' | ']' => {
                 nesting_level -= 1;
                 if !buffer.is_empty() {
                     let edn_val = read_string(&buffer.trim()).unwrap();
