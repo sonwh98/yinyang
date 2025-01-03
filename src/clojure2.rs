@@ -213,7 +213,7 @@ fn parse_first_valid_expr(astr: &str) -> Result<EDN, String> {
         .or_else(|_| parse_float(first))
         .or_else(|_| parse_keyword(first))
         .or_else(|_| parse_string(first))
-        .or_else(|_| parse_list(first))
+        .or_else(|_| parse_seq(first))
         .or_else(|_| parse_symbol(first));
 }
 
@@ -255,10 +255,10 @@ fn parse_string(astr: &str) -> Result<EDN, String> {
     }
 }
 // (def a 1 (def b 2))
-fn parse_list(astr: &str) -> Result<EDN, String> {
+fn parse_seq(astr: &str) -> Result<EDN, String> {
     let astr = astr.trim();
-    if astr.starts_with('(') {
-        parse_list_helper(&mut astr.chars(), 0, &mut Vec::new())
+    if astr.starts_with('(') || astr.starts_with('[') {
+        parse_seq_helper(&mut astr.chars(), 0, &mut Vec::new())
     } else {
         return Err("cannot parse list".to_string());
     }
@@ -286,7 +286,7 @@ fn into(a_list: &EDN, an_item: &EDN) -> EDN {
     }
 }
 
-fn parse_list_helper(
+fn parse_seq_helper(
     astr_iter: &mut Chars,
     mut nesting_level: i8,
     items: &mut Vec<EDN>,
@@ -296,15 +296,15 @@ fn parse_list_helper(
 
     while let Some(ch) = astr_iter.next() {
         match ch {
-            '(' => {
+            '(' | '[' => {
                 if nesting_level > 0 {
-                    let a_list = parse_list_helper(astr_iter, 1, &mut Vec::new());
+                    let a_list = parse_seq_helper(astr_iter, 1, &mut Vec::new());
                     items.extend(a_list);
                 } else {
                     nesting_level += 1;
                 }
             }
-            ')' => {
+            ')' | ']'=> {
                 nesting_level -= 1;
                 if !buffer.is_empty() {
                     let edn_val = read_string(&buffer.trim()).unwrap();
@@ -326,18 +326,21 @@ fn parse_list_helper(
         }
     }
 
-    if !buffer.is_empty() {
-        let token_iterator = buffer.split_whitespace();
-        let mut edn_tokens: Vec<EDN> = token_iterator
-            .map(|token| {
-                return read_string(token).unwrap();
-            })
-            .collect();
-        let a_list = EDN::List(edn_tokens.clone());
-        return Ok(into(&a_list, &items[0]));
-    } else {
-        return Ok(EDN::List(items.to_vec()));
-    }
+    return Ok(EDN::List(items.to_vec()));
+    
+    // if !buffer.is_empty() {
+    // 	println!("buffer-foo={:?}",buffer);
+    //     let token_iterator = buffer.split_whitespace();
+    //     let mut edn_tokens: Vec<EDN> = token_iterator
+    //         .map(|token| {
+    //             return read_string(token).unwrap();
+    //         })
+    //         .collect();
+    //     let a_list = EDN::List(edn_tokens.clone());
+    //     return Ok(into(&a_list, &items[0]));
+    // } else {
+    //     return Ok(EDN::List(items.to_vec()));
+    // }
 }
 
 pub fn read_string(astr: &str) -> Result<EDN, String> {
@@ -348,7 +351,7 @@ pub fn read_string(astr: &str) -> Result<EDN, String> {
         .or_else(|_| parse_float(astr))
         .or_else(|_| parse_keyword(astr))
         .or_else(|_| parse_string(astr))
-        .or_else(|_| parse_list(astr))
+        .or_else(|_| parse_seq(astr))
         .or_else(|_| parse_first_valid_expr(astr))
         .or_else(|_| parse_symbol(astr))
 }
