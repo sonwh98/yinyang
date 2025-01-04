@@ -204,19 +204,23 @@ fn parse_keyword(astr: &str) -> Result<EDN, String> {
     }
 }
 
+fn parse_all(astr: &str) -> Result<EDN, String> {
+    return parse_nil(astr)
+        .or_else(|_| parse_bool(astr))
+        .or_else(|_| parse_int(astr))
+        .or_else(|_| parse_float(astr))
+        .or_else(|_| parse_keyword(astr))
+        .or_else(|_| parse_string(astr))
+        .or_else(|_| parse_map(astr))
+        .or_else(|_| parse_vector(astr))
+        .or_else(|_| parse_list(astr));
+}
+
 fn parse_first_valid_expr(astr: &str) -> Result<EDN, String> {
     let mut token_iter = astr.split_whitespace();
     let first = token_iter.nth(0).unwrap_or("");
 
-    return parse_nil(first)
-        .or_else(|_| parse_bool(first))
-        .or_else(|_| parse_int(first))
-        .or_else(|_| parse_float(first))
-        .or_else(|_| parse_keyword(first))
-        .or_else(|_| parse_string(first))
-        .or_else(|_| parse_vector(first))
-        .or_else(|_| parse_list(first))
-        .or_else(|_| parse_symbol(first));
+    return parse_all(first).or_else(|_| parse_symbol(first));
 }
 
 fn parse_symbol(astr: &str) -> Result<EDN, String> {
@@ -257,13 +261,13 @@ fn parse_string(astr: &str) -> Result<EDN, String> {
     }
 }
 
-fn parse_collection_helper(
+fn parse_seq_helper(
     astr_iter: &mut Chars,
     mut nesting_level: i8,
     items: &mut Vec<EDN>,
     begin: &str,
     end: &str,
-    constructor: fn(Vec<EDN>) -> EDN, // EDN constructor parameter
+    constructor: fn(Vec<EDN>) -> EDN,
 ) -> Result<EDN, String> {
     let mut buffer = String::new();
 
@@ -278,9 +282,9 @@ fn parse_collection_helper(
         );
         if buffer == begin {
             if nesting_level > 0 {
-                let a_list =
-                    parse_collection_helper(astr_iter, 1, &mut Vec::new(), begin, end, constructor);
-                items.extend(a_list);
+                let a_collection =
+                    parse_seq_helper(astr_iter, 1, &mut Vec::new(), begin, end, constructor);
+                items.extend(a_collection);
             } else {
                 nesting_level += 1;
             }
@@ -310,7 +314,7 @@ fn parse_collection_helper(
 fn parse_list(astr: &str) -> Result<EDN, String> {
     let astr = astr.trim();
     if astr.starts_with('(') {
-        parse_collection_helper(&mut astr.chars(), 0, &mut Vec::new(), "(", ")", EDN::List)
+        parse_seq_helper(&mut astr.chars(), 0, &mut Vec::new(), "(", ")", EDN::List)
     } else {
         return Err("cannot parse list".to_string());
     }
@@ -319,7 +323,64 @@ fn parse_list(astr: &str) -> Result<EDN, String> {
 fn parse_vector(astr: &str) -> Result<EDN, String> {
     let astr = astr.trim();
     if astr.starts_with('[') {
-        parse_collection_helper(&mut astr.chars(), 0, &mut Vec::new(), "[", "]", EDN::Vector)
+        parse_seq_helper(&mut astr.chars(), 0, &mut Vec::new(), "[", "]", EDN::Vector)
+    } else {
+        return Err("cannot parse list".to_string());
+    }
+}
+
+fn vec_to_set(items: Vec<EDN>) -> EDN {
+    let mut set = HashSet::new();
+    for item in items {
+        set.insert(item);
+    }
+    EDN::Set(set)
+}
+
+fn is_odd(i: i8) -> bool {
+    i % 2 == 1
+}
+
+fn parse_map(astr: &str) -> Result<EDN, String> {
+    let astr = astr.trim();
+    if astr.starts_with("{") {
+        let iter = &mut astr.chars();
+        let mut nesting_level = 0;
+        let mut buffer = String::new();
+        let mut space_count = 0;
+        let mut map: HashMap<EDN, EDN> = HashMap::new();
+
+        while let Some(ch) = iter.next() {
+            if ch != '{' && ch != '}' {
+                buffer.push(ch);
+            }
+
+            if is_odd(space_count) && !buffer.trim().is_empty() {
+                //println!("odd1 map={:?}",map);
+                let mut kv_pair_iter = buffer.split_whitespace();
+                let k = kv_pair_iter.next().unwrap();
+                let v = kv_pair_iter.next().unwrap();
+
+                println!("k={:?} v={:?}", k, v);
+		map.insert(read_string(k).unwrap(), read_string(v).unwrap());
+                buffer.clear();
+            }
+
+            if ch == ' ' {
+                space_count += 1;
+            }
+
+            // println!(
+            //     "ch={:?} buffer={:?} count{:?}, level={:?} map={:?}",
+            //     ch, buffer, space_count, nesting_level, map
+            // );
+        }
+
+        println!(
+            "buffe-finalr={:?} level={:?} map={:?}",
+            buffer, nesting_level, map
+        );
+        return Ok(EDN::Nil);
     } else {
         return Err("cannot parse list".to_string());
     }
@@ -349,14 +410,7 @@ fn into(a_list: &EDN, an_item: &EDN) -> EDN {
 
 pub fn read_string(astr: &str) -> Result<EDN, String> {
     let astr = astr.trim();
-    parse_nil(astr)
-        .or_else(|_| parse_bool(astr))
-        .or_else(|_| parse_int(astr))
-        .or_else(|_| parse_float(astr))
-        .or_else(|_| parse_keyword(astr))
-        .or_else(|_| parse_string(astr))
-        .or_else(|_| parse_vector(astr))
-        .or_else(|_| parse_list(astr))
+    parse_all(astr)
         .or_else(|_| parse_first_valid_expr(astr))
         .or_else(|_| parse_symbol(astr))
 }
