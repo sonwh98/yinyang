@@ -273,10 +273,6 @@ fn parse_list_helper(
             buffer.push(ch);
         }
 
-        println!(
-            "ch={:?} buffer={:?} level={:?} items={:?}",
-            ch, buffer, nesting_level, items
-        );
         if buffer == "(" {
             if nesting_level > 0 {
                 let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
@@ -285,7 +281,25 @@ fn parse_list_helper(
                 nesting_level += 1;
             }
             buffer.clear();
+        } else if buffer == "[" {
+            if nesting_level > 0 {
+                let a_vector = parse_vector_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_vector);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
         } else if ch == ')' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ']' {
             nesting_level -= 1;
             if !buffer.is_empty() {
                 let edn_val = read_string(&buffer.trim()).unwrap();
@@ -302,6 +316,10 @@ fn parse_list_helper(
                 buffer.clear();
             }
         }
+    }
+
+    if nesting_level != 0 {
+        return Err("Cannot parse List".to_string());
     }
 
     return Ok(EDN::List(items.to_vec()));
@@ -328,11 +346,15 @@ fn parse_vector_helper(
             buffer.push(ch);
         }
 
-        println!(
-            "ch={:?} buffer={:?} level={:?} items={:?}",
-            ch, buffer, nesting_level, items
-        );
-        if buffer == "[" {
+        if buffer == "(" {
+            if nesting_level > 0 {
+                let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_collection);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "[" {
             if nesting_level > 0 {
                 let a_collection = parse_vector_helper(astr_iter, 1, &mut Vec::new());
                 items.extend(a_collection);
@@ -340,6 +362,16 @@ fn parse_vector_helper(
                 nesting_level += 1;
             }
             buffer.clear();
+        } else if ch == ')' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
         } else if ch == ']' {
             nesting_level -= 1;
             if !buffer.is_empty() {
@@ -359,6 +391,9 @@ fn parse_vector_helper(
         }
     }
 
+    if nesting_level != 0 {
+        return Err("Cannot parse Vector".to_string());
+    }
     return Ok(EDN::Vector(items.to_vec()));
 }
 
