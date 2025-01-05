@@ -265,7 +265,6 @@ fn parse_list_helper(
     astr_iter: &mut Chars,
     mut nesting_level: i8,
     items: &mut Vec<EDN>,
-    constructor: fn(Vec<EDN>) -> EDN,
 ) -> Result<EDN, String> {
     let mut buffer = String::new();
 
@@ -280,7 +279,7 @@ fn parse_list_helper(
         );
         if buffer == "(" {
             if nesting_level > 0 {
-                let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new(), constructor);
+                let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
                 items.extend(a_collection);
             } else {
                 nesting_level += 1;
@@ -305,14 +304,13 @@ fn parse_list_helper(
         }
     }
 
-    return Ok(constructor(items.to_vec()));
+    return Ok(EDN::List(items.to_vec()));
 }
-
 
 fn parse_list(astr: &str) -> Result<EDN, String> {
     let astr = astr.trim();
     if astr.starts_with('(') {
-        parse_list_helper(&mut astr.chars(), 0, &mut Vec::new(), EDN::List)
+        return parse_list_helper(&mut astr.chars(), 0, &mut Vec::new());
     } else {
         return Err("cannot parse list".to_string());
     }
@@ -322,7 +320,6 @@ fn parse_vector_helper(
     astr_iter: &mut Chars,
     mut nesting_level: i8,
     items: &mut Vec<EDN>,
-    constructor: fn(Vec<EDN>) -> EDN,
 ) -> Result<EDN, String> {
     let mut buffer = String::new();
 
@@ -337,7 +334,7 @@ fn parse_vector_helper(
         );
         if buffer == "[" {
             if nesting_level > 0 {
-                let a_collection = parse_vector_helper(astr_iter, 1, &mut Vec::new(), constructor);
+                let a_collection = parse_vector_helper(astr_iter, 1, &mut Vec::new());
                 items.extend(a_collection);
             } else {
                 nesting_level += 1;
@@ -362,13 +359,13 @@ fn parse_vector_helper(
         }
     }
 
-    return Ok(constructor(items.to_vec()));
+    return Ok(EDN::Vector(items.to_vec()));
 }
 
 fn parse_vector(astr: &str) -> Result<EDN, String> {
     let astr = astr.trim();
     if astr.starts_with('[') {
-        parse_vector_helper(&mut astr.chars(), 0, &mut Vec::new(), EDN::Vector)
+        return parse_vector_helper(&mut astr.chars(), 0, &mut Vec::new());
     } else {
         return Err("cannot parse list".to_string());
     }
