@@ -273,10 +273,6 @@ fn parse_list_helper(
             buffer.push(ch);
         }
 
-        println!(
-            "ch={:?} buffer={:?} level={:?} items={:?}",
-            ch, buffer, nesting_level, items
-        );
         if buffer == "(" {
             if nesting_level > 0 {
                 let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
@@ -321,7 +317,7 @@ fn parse_list_helper(
             }
         }
     }
-    println!("level={:?}", nesting_level);
+
     if nesting_level != 0 {
         return Err("Cannot parse List".to_string());
     }
@@ -350,10 +346,6 @@ fn parse_vector_helper(
             buffer.push(ch);
         }
 
-        println!(
-            "ch={:?} buffer={:?} level={:?} items={:?}",
-            ch, buffer, nesting_level, items
-        );
         if buffer == "(" {
             if nesting_level > 0 {
                 let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
@@ -398,7 +390,7 @@ fn parse_vector_helper(
             }
         }
     }
-    println!("level={:?}", nesting_level);
+
     if nesting_level != 0 {
         return Err("Cannot parse Vector".to_string());
     }
