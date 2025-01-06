@@ -290,6 +290,14 @@ fn parse_list_helper(
                 nesting_level += 1;
             }
             buffer.clear();
+        } else if buffer == "#{" {
+            if nesting_level > 0 {
+                let a_set = parse_set_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
         } else if ch == ')' {
             nesting_level -= 1;
             if !buffer.is_empty() {
@@ -301,6 +309,16 @@ fn parse_list_helper(
                 break;
             }
         } else if ch == ']' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == '}' {
             nesting_level -= 1;
             if !buffer.is_empty() {
                 let edn_val = read_string(&buffer.trim()).unwrap();
@@ -363,6 +381,14 @@ fn parse_vector_helper(
                 nesting_level += 1;
             }
             buffer.clear();
+        } else if buffer == "#{" {
+            if nesting_level > 0 {
+                let a_set = parse_set_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
         } else if ch == ')' {
             nesting_level -= 1;
             if !buffer.is_empty() {
@@ -374,6 +400,16 @@ fn parse_vector_helper(
                 break;
             }
         } else if ch == ']' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == '}' {
             nesting_level -= 1;
             if !buffer.is_empty() {
                 let edn_val = read_string(&buffer.trim()).unwrap();
