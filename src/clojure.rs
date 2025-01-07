@@ -1,11 +1,13 @@
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use regex::Regex;
+use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
 use std::ops::Add;
+use std::str::Chars;
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
@@ -23,6 +25,8 @@ pub enum EDN {
     Set(HashSet<EDN>),
     Function(fn(EDN) -> EDN),
 }
+
+impl Eq for EDN {}
 
 impl PartialEq for EDN {
     fn eq(&self, other: &Self) -> bool {
@@ -42,18 +46,6 @@ impl PartialEq for EDN {
         }
     }
 }
-impl Add for EDN {
-    type Output = Result<EDN, &'static str>;
-
-    fn add(self, other: EDN) -> Self::Output {
-        match (self, other) {
-            (EDN::Integer(a), EDN::Integer(b)) => Ok(EDN::Integer(a + b)),
-            _ => Err("Both EDN values must be Integer variants to perform addition."),
-        }
-    }
-}
-
-impl Eq for EDN {}
 
 impl Hash for EDN {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -117,171 +109,13 @@ impl Hash for EDN {
     }
 }
 
-fn parse_edn_value<'a, I: Iterator<Item = &'a str>>(iter: &mut I) -> Result<EDN, String> {
-    if let Some(token) = iter.next() {
-        if token.starts_with(':') {
-            Ok(EDN::Keyword(token[1..].to_string()))
-        } else if let Ok(int_val) = token.parse::<BigInt>() {
-            Ok(EDN::Integer(int_val))
-        } else if token.starts_with('"') && token.ends_with('"') {
-            Ok(EDN::String(token[1..token.len() - 1].to_string()))
-        } else if token == "nil" {
-            Ok(EDN::Nil)
-        } else if token == "true" {
-            Ok(EDN::Bool(true))
-        } else if token == "false" {
-            Ok(EDN::Bool(false))
-        } else if token.starts_with('{') && token.ends_with('}') {
-            read_string(token)
-        } else {
-            Ok(EDN::Symbol(token.to_string()))
-        }
-    } else {
-        Err("Unexpected end of input".to_string())
-    }
-}
-
-pub fn read_string(input: &str) -> Result<EDN, String> {
-    let input = input.trim();
-    println!("input = {:?}", input);
-
-    if input == "nil" || input.is_empty() {
-        return Ok(EDN::Nil);
-    }
-
-    if let Ok(b) = input.parse::<bool>() {
-        return Ok(EDN::Bool(b));
-    }
-
-    if let Ok(i) = input.parse::<BigInt>() {
-        return Ok(EDN::Integer(i));
-    }
-
-    if let Ok(f) = BigDecimal::from_str(input) {
-        return Ok(EDN::Float(f));
-    }
-
-    if input.starts_with('"') && input.ends_with('"') {
-        let content = &input[1..input.len() - 1];
-        return Ok(EDN::String(content.to_string()));
-    }
-
-    if input.starts_with(':') {
-        return Ok(EDN::Keyword(input.to_string()));
-    }
-
-    if input.starts_with('(') && input.ends_with(')') {
-        let items = &input[1..input.len() - 1];
-        let parsed_items = read_string_helper(items)?;
-        return Ok(EDN::List(parsed_items));
-    }
-
-    if input.starts_with('[') && input.ends_with(']') {
-        let items = &input[1..input.len() - 1];
-        let parsed_items = read_string_helper(items)?;
-        return Ok(EDN::Vector(parsed_items));
-    }
-
-    if input.starts_with('{') && input.ends_with('}') {
-        let content = &input[1..input.len() - 1];
-        let mut map = HashMap::new();
-        let mut key_val_iter = content.split_whitespace().peekable();
-
-        while key_val_iter.peek().is_some() {
-            let key = parse_edn_value(&mut key_val_iter)?;
-            let val = parse_edn_value(&mut key_val_iter)?;
-            map.insert(key, val);
-        }
-        return Ok(EDN::Map(map));
-    }
-
-    if input.starts_with("#{") && input.ends_with('}') {
-        let items = &input[2..input.len() - 1];
-        let parsed_items = read_string_helper(items)?
-            .into_iter()
-            .collect::<HashSet<_>>();
-        return Ok(EDN::Set(parsed_items));
-    }
-
-    let symbol_regex = Regex::new(
-        r"(?x)                      # Enable verbose mode
-    [\w.!@$%^&|=<>?+/~*^-]           # Match a single character from this set
-    [-a-zA-Z0-9_!@$%^&|=<>?.+/~*^-]* # Match zero or more characters from this set
-    ",
-    )
-    .unwrap();
-
-    if symbol_regex.is_match(input) {
-        return Ok(EDN::Symbol(input.to_string()));
-    }
-
-    Err(format!("Unable to parse EDN: {}", input))
-}
-
-pub fn clj_read_string(s: EDN) -> EDN {
-    println!("clj_read-string {:?}", s);
-    match s {
-        EDN::String(a_string) => {
-            println!("a_string={:?}", a_string);
-            return read_string(&a_string).unwrap_or(EDN::Nil);
-        }
-        _ => {
-            return EDN::Nil;
-        }
-    }
-    return EDN::String("wassup".to_string());
-}
-
-fn read_string_helper(input: &str) -> Result<Vec<EDN>, String> {
-    let mut items = Vec::new();
-    let mut buffer = String::new();
-    let mut nesting_level = 0;
-    let mut start_string = false;
-    for ch in input.chars() {
-        match ch {
-            '(' | '[' | '{' => {
-                nesting_level += 1;
-                buffer.push(ch);
-            }
-            ')' | ']' | '}' => {
-                nesting_level -= 1;
-                buffer.push(ch);
-                if nesting_level == 0 {
-                    items.push(read_string(&buffer.trim())?);
-                    buffer.clear();
-                }
-            }
-            '"' if start_string == false => {
-                buffer.push(ch);
-                start_string = true;
-            }
-            '"' if start_string == true => {
-                buffer.push(ch);
-                start_string = false;
-                items.push(read_string(&buffer.trim())?);
-            }
-            ' ' if nesting_level == 0 && !start_string => {
-                if !buffer.is_empty() {
-                    items.push(read_string(&buffer.trim())?);
-                    buffer.clear();
-                }
-            }
-            _ => buffer.push(ch),
-        }
-    }
-    if !buffer.is_empty() {
-        items.push(read_string(&buffer.trim())?);
-    }
-    Ok(items)
-}
-
 impl fmt::Display for EDN {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             EDN::Nil => write!(f, "nil"),
             EDN::Bool(b) => write!(f, "{}", b),
             EDN::Integer(i) => write!(f, "{}", i),
-            EDN::Float(d) => write!(f, "{}", d),
+            EDN::Float(d) => write!(f, "{}", d.to_string()),
             EDN::String(s) => write!(f, "\"{}\"", s),
             EDN::Symbol(sym) => write!(f, "{}", sym),
             EDN::Keyword(k) => write!(f, "{}", k),
@@ -330,300 +164,523 @@ impl fmt::Display for EDN {
     }
 }
 
-type Context = HashMap<String, EDN>;
+fn parse_nil(astr: &str) -> Result<EDN, String> {
+    if astr == "nil" || astr.is_empty() {
+        return Ok(EDN::Nil);
+    } else {
+        return Err(format!("No EDN::Nil: {}", astr));
+    }
+}
 
-pub fn eval(ctx: &mut Context, edn: &EDN) -> Result<EDN, String> {
-    match edn {
-        EDN::List(l) => {
-            let f = l.first();
-            if let Some(EDN::Symbol(sym)) = f {
-                if sym.as_str() == "def" {
-                    let var = &l[1];
-                    let var_val = &l[2];
-                    if let EDN::Symbol(v) = var {
-                        ctx.insert(
-                            v.clone(),
-                            eval(&mut ctx.clone(), var_val).unwrap_or(EDN::Nil),
-                        );
-                    }
-                    return Ok(var_val.clone());
-                } else {
-                    let sym_val = ctx.get(sym).unwrap_or(&EDN::Nil);
-                    match sym_val {
-                        EDN::Function(fun) => {
-                            let args = l[1..].to_vec();
-                            let eval_args: Vec<EDN> = args
-                                .iter()
-                                .map(|a| eval(&mut ctx.clone(), a).unwrap_or(EDN::Nil))
-                                .collect();
-                            let args_edn = EDN::Vector(eval_args);
-                            println!("args={:?} args_edn={:?}", args, args_edn);
-                            return Ok(fun(args_edn));
-                        }
-                        _ => {
-                            return Err("don't know how to eval".to_string());
-                        }
-                    }
+fn parse_bool(astr: &str) -> Result<EDN, String> {
+    if let Ok(b) = astr.parse::<bool>() {
+        return Ok(EDN::Bool(b));
+    } else {
+        return Err(format!("No EDN::Bool: {}", astr));
+    }
+}
+
+fn parse_int(astr: &str) -> Result<EDN, String> {
+    if let Ok(i) = astr.parse::<BigInt>() {
+        return Ok(EDN::Integer(i));
+    } else {
+        return Err(format!("No EDN::Integer: {}", astr));
+    }
+}
+
+fn parse_float(astr: &str) -> Result<EDN, String> {
+    if let Ok(f) = BigDecimal::from_str(astr) {
+        return Ok(EDN::Float(f));
+    } else {
+        return Err(format!("No EDN::Float: {}", astr));
+    }
+}
+
+fn parse_keyword(astr: &str) -> Result<EDN, String> {
+    if astr.starts_with(':') {
+        return Ok(EDN::Keyword(astr.to_string()));
+    } else {
+        return Err(format!("No EDN::Keyword: {}", astr));
+    }
+}
+
+fn parse_all(astr: &str) -> Result<EDN, String> {
+    return parse_nil(astr)
+        .or_else(|_| parse_bool(astr))
+        .or_else(|_| parse_int(astr))
+        .or_else(|_| parse_float(astr))
+        .or_else(|_| parse_keyword(astr))
+        .or_else(|_| parse_string(astr))
+        .or_else(|_| parse_map(astr))
+        .or_else(|_| parse_vector(astr))
+        .or_else(|_| parse_list(astr))
+        .or_else(|_| parse_set(astr));
+}
+
+fn parse_first_valid_expr(astr: &str) -> Result<EDN, String> {
+    let mut token_iter = astr.split_whitespace();
+    let first = token_iter.nth(0).unwrap_or("");
+
+    return parse_all(first).or_else(|_| parse_symbol(first));
+}
+
+fn parse_symbol(astr: &str) -> Result<EDN, String> {
+    let symbol_regex = Regex::new(
+        r"(?x)                      # Enable verbose mode
+    [\w.!@$%^&|=<>?+/~*^-]           # Match a single character from this set
+    [-a-zA-Z0-9_!@$%^&|=<>?.+/~*^-]* # Match zero or more characters from this set
+    ",
+    )
+    .unwrap();
+
+    if symbol_regex.is_match(astr) {
+        return Ok(EDN::Symbol(astr.to_string()));
+    }
+    return Err(format!("Cannot parse symbol {:?}", astr));
+}
+
+fn parse_string(astr: &str) -> Result<EDN, String> {
+    if astr.starts_with('"') {
+        let mut buffer = String::new();
+        let mut nesting_level = 0;
+        for ch in astr.chars() {
+            match ch {
+                '"' if nesting_level == 0 => {
+                    nesting_level += 1;
+                }
+                '"' if nesting_level == 1 => {
+                    break;
+                }
+                _ => {
+                    buffer.push(ch);
                 }
             }
-            return Ok(EDN::Nil);
         }
-        EDN::Symbol(s) => {
-            let sym_val = ctx.get(s);
-            if let Some(v) = sym_val {
-                return Ok(v.clone());
+        return Ok(EDN::String(buffer));
+    } else {
+        return Err("cannot parse string".to_string());
+    }
+}
+
+fn parse_list_helper(
+    astr_iter: &mut Chars,
+    mut nesting_level: i8,
+    items: &mut Vec<EDN>,
+) -> Result<EDN, String> {
+    let mut buffer = String::new();
+
+    while let Some(ch) = astr_iter.next() {
+        if ch != ' ' && ch != ',' && ch != ')' {
+            buffer.push(ch);
+        }
+
+        if buffer == "(" {
+            if nesting_level > 0 {
+                let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_collection);
             } else {
-                println!("Unable to resolve {:?}", edn);
-                return Ok(EDN::Nil);
+                nesting_level += 1;
             }
-        }
-        EDN::Bool(_)
-        | EDN::Nil
-        | EDN::Integer(_)
-        | EDN::Float(_)
-        | EDN::String(_)
-        | EDN::Keyword(_)
-        | EDN::Vector(_)
-        | EDN::Map(_)
-        | EDN::Set(_) => {
-            return Ok(edn.clone());
-        }
-        _ => {
-            println!("Error");
-            return Ok(EDN::Nil);
-        }
-    }
-}
-
-pub fn sum(edn: EDN) -> EDN {
-    match edn {
-        EDN::Vector(vec) => {
-            let a = vec.iter().fold(BigInt::from(0), |acc, item| {
-                if let EDN::Integer(ref num) = item {
-                    acc + num
-                } else {
-                    acc
-                }
-            });
-            return EDN::Integer(a);
-        }
-        _ => EDN::Integer(BigInt::from(0)),
-    }
-}
-
-pub fn mul(edn: EDN) -> EDN {
-    match edn {
-        EDN::Vector(vec) => {
-            let a = vec.iter().fold(BigInt::from(1), |acc, item| {
-                if let EDN::Integer(ref num) = item {
-                    acc * num
-                } else {
-                    acc
-                }
-            });
-            return EDN::Integer(a);
-        }
-        _ => EDN::Integer(BigInt::from(0)),
-    }
-}
-
-pub fn repl() {
-    let mut ctx = HashMap::new();
-    ctx.insert("+".to_string(), EDN::Function(sum));
-    ctx.insert("read-string".to_string(), EDN::Function(clj_read_string));
-
-    loop {
-        print!("repl> ");
-        io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-
-        let bytes_read = io::stdin().read_line(&mut input).unwrap();
-        let input = input.trim();
-        let ctrl_d = 0;
-        if bytes_read == ctrl_d || input == ":clj/quit" {
-            break;
-        }
-
-        let parsed_edn = read_string(input);
-        match parsed_edn {
-            Ok(edn) => {
-                let result = eval(&mut ctx, &edn);
-                match result {
-                    Ok(edn) => {
-                        println!("{}", edn);
-                    }
-                    Err(_) => {
-                        println!("cannot eval {:?}", edn);
-                    }
-                }
+            buffer.clear();
+        } else if buffer == "[" {
+            if nesting_level > 0 {
+                let a_vector = parse_vector_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_vector);
+            } else {
+                nesting_level += 1;
             }
-            Err(err) => {
-                eprintln!("Error reading input: {:?}", err);
+            buffer.clear();
+        } else if buffer == "#{" {
+            if nesting_level > 0 {
+                let a_set = parse_set_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if ch == ')' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ']' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == '}' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ' ' || ch == ',' {
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+                buffer.clear();
             }
         }
     }
+
+    if nesting_level != 0 {
+        return Err("Cannot parse List".to_string());
+    }
+
+    return Ok(EDN::List(items.to_vec()));
 }
 
-
-fn read_string_example() {
-    let examples = vec![
-        "(1 (2 3) 4)",
-        "[1 2 [3 4] 5]",
-        "{:a 1 :b 2 :c 3}",
-        "{1 2 2 4}",
-        "{\"first-name\" \"Sonny\" \"last-name\" \"Su\"}",
-        "#{1 2}",
-        "#{{1 2} {3 4}}",
-        "#{{:a :b} {:c :d}}",
-        "nil",
-        "true",
-        "false",
-        "123",
-        "45.67",
-        "\"a string\"",
-        ":keyword",
-        "symbol",
-        "+",
-        "-",
-        "*",
-        "/",
-        "_",
-        "$",
-        "?",
-        "<",
-        ">",
-        "!",
-        "|",
-        "%",
-        "@",
-        ".",
-        "..",
-        "(+ 1 1)",
-        "(defn sum [a b] (+ a b))",
-        "(-> a b c)",
-        "(->> foo bar)",
-        "(. Foo bar 1 2 3)",
-        "(.. Foo (bar 1 2 3))",
-    ];
-
-    for example in examples {
-        match read_string(example) {
-            Ok(edn) => println!("Parsed: {} -> {:?}", example, edn),
-            Err(e) => println!("Error: {} -> {}", example, e),
-        }
+fn parse_list(astr: &str) -> Result<EDN, String> {
+    let astr = astr.trim();
+    if astr.starts_with('(') {
+        return parse_list_helper(&mut astr.chars(), 0, &mut Vec::new());
+    } else {
+        return Err("cannot parse list".to_string());
     }
 }
 
-fn eval_examples() {
-    let mut ctx = HashMap::new();
+fn parse_vector_helper(
+    astr_iter: &mut Chars,
+    mut nesting_level: i8,
+    items: &mut Vec<EDN>,
+) -> Result<EDN, String> {
+    let mut buffer = String::new();
 
-    ctx.insert("+".to_string(), EDN::Function(sum));
-    ctx.insert("-".to_string(), EDN::Function(sum));
-    ctx.insert("*".to_string(), EDN::Function(mul));
-    let add = read_string("(+ 1 2 3 4 5 6)").unwrap();
-    let mul = read_string("(* 1 2 3 4 5 6)").unwrap();
-    let sub = read_string("(- 1 2 3 4 5 6)").unwrap();
-    let a = eval(&mut ctx, &add).unwrap();
-    let m = eval(&mut ctx, &mul).unwrap();
-    let s = eval(&mut ctx, &sub).unwrap();
-    println!("a= {:?} m={:?} s={:?}", a, m, s);
+    while let Some(ch) = astr_iter.next() {
+        if ch != ' ' && ch != ',' && ch != ']' {
+            buffer.push(ch);
+        }
 
-    read_string("(defn add [a b] (+ a b))").unwrap();
+        if buffer == "(" {
+            if nesting_level > 0 {
+                let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_collection);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "[" {
+            if nesting_level > 0 {
+                let a_collection = parse_vector_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_collection);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "#{" {
+            if nesting_level > 0 {
+                let a_set = parse_set_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if ch == ')' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ']' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == '}' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ' ' || ch == ',' {
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+                buffer.clear();
+            }
+        }
+    }
+
+    if nesting_level != 0 {
+        return Err("Cannot parse Vector".to_string());
+    }
+    return Ok(EDN::Vector(items.to_vec()));
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use num_bigint::BigInt;
+fn parse_vector(astr: &str) -> Result<EDN, String> {
+    let astr = astr.trim();
+    if astr.starts_with('[') {
+        return parse_vector_helper(&mut astr.chars(), 0, &mut Vec::new());
+    } else {
+        return Err("cannot parse list".to_string());
+    }
+}
 
-    #[test]
-    fn test_read_string_simple_addition() {
-        let input = "(+ 1 1)";
-        let expected = EDN::List(
-            (vec![
-                EDN::Symbol("+".to_string()),
-                EDN::Integer(BigInt::from(1)),
-                EDN::Integer(BigInt::from(1)),
-            ]),
-        );
+fn vec_to_set(items: Vec<EDN>) -> EDN {
+    let mut set = HashSet::new();
+    for item in items {
+        set.insert(item);
+    }
+    EDN::Set(set)
+}
 
-        match read_string(input) {
-            Ok(parsed) => assert_eq!(parsed, expected),
-            Err(e) => panic!("Failed to parse '{}': {}", input, e),
+fn vec_to_map<V>(v: Vec<V>) -> HashMap<V, V>
+where
+    V: Eq + Hash + Clone,
+{
+    let mut map = HashMap::new();
+    for pair in v.chunks(2) {
+        if let [key, value] = pair {
+            map.insert(key.clone(), value.clone());
+        }
+    }
+    return map;
+}
+
+fn is_odd(i: i8) -> bool {
+    i % 2 == 1
+}
+
+fn parse_set_helper(
+    astr_iter: &mut Chars,
+    mut nesting_level: i8,
+    items: &mut Vec<EDN>,
+) -> Result<EDN, String> {
+    let mut buffer = String::new();
+
+    while let Some(ch) = astr_iter.next() {
+        if ch != ' ' && ch != ',' && ch != '}' {
+            buffer.push(ch);
+        }
+        if buffer == "(" {
+            if nesting_level > 0 {
+                let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_collection);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "[" {
+            if nesting_level > 0 {
+                let a_vector = parse_vector_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_vector);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "#{" {
+            if nesting_level > 0 {
+                let a_set = parse_set_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if ch == ')' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ']' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == '}' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ' ' || ch == ',' {
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+                buffer.clear();
+            }
         }
     }
 
-    #[test]
-    fn test_read_string_nested_list() {
-        let input = "(1 (2 3) 4)";
-        let expected = EDN::List(
-            (vec![
-                EDN::Integer(BigInt::from(1)),
-                EDN::List((vec![EDN::Integer(BigInt::from(2)), EDN::Integer(BigInt::from(3))])),
-                EDN::Integer(BigInt::from(4)),
-            ]),
-        );
+    if nesting_level != 0 {
+        return Err("Cannot parse List".to_string());
+    }
 
-        match read_string(input) {
-            Ok(parsed) => assert_eq!(parsed, expected),
-            Err(e) => panic!("Failed to parse '{}': {}", input, e),
+    return Ok(vec_to_set(items.to_vec()));
+}
+
+fn parse_set(astr: &str) -> Result<EDN, String> {
+    let astr = astr.trim();
+    if astr.starts_with("#{") {
+        return parse_set_helper(&mut astr.chars(), 0, &mut Vec::new());
+    } else {
+        return Err("cannot parse set".to_string());
+    }
+}
+
+fn parse_map_helper(
+    astr_iter: &mut Chars,
+    mut nesting_level: i8,
+    items: &mut Vec<EDN>,
+) -> Result<EDN, String> {
+    let mut buffer = String::new();
+
+    while let Some(ch) = astr_iter.next() {
+        if ch != ' ' && ch != ',' && ch != '}' {
+            buffer.push(ch);
+        }
+        if buffer == "(" {
+            if nesting_level > 0 {
+                let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_collection);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "[" {
+            if nesting_level > 0 {
+                let a_vector = parse_vector_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_vector);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "#{" {
+            if nesting_level > 0 {
+                let a_set = parse_set_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "{" {
+            if nesting_level > 0 {
+                let a_set = parse_map_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if ch == ')' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ']' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == '}' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ' ' || ch == ',' {
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+                buffer.clear();
+            }
         }
     }
 
-    #[test]
-    fn test_read_string_vector() {
-        let input = "[1 2 [3 4] 5]";
-        let expected = EDN::Vector(vec![
-            EDN::Integer(BigInt::from(1)),
-            EDN::Integer(BigInt::from(2)),
-            EDN::Vector(vec![
-                EDN::Integer(BigInt::from(3)),
-                EDN::Integer(BigInt::from(4)),
-            ]),
-            EDN::Integer(BigInt::from(5)),
-        ]);
-
-        match read_string(input) {
-            Ok(parsed) => assert_eq!(parsed, expected),
-            Err(e) => panic!("Failed to parse '{}': {}", input, e),
-        }
+    if nesting_level != 0 {
+        return Err("Cannot parse List".to_string());
     }
 
-    #[test]
-    fn test_read_string_map() {
-        let input = "{:a 1 :b 2}";
-        let mut expected_map = HashMap::new();
-        expected_map.insert(EDN::Keyword("a".to_string()), EDN::Integer(BigInt::from(1)));
-        expected_map.insert(EDN::Keyword("b".to_string()), EDN::Integer(BigInt::from(2)));
-        let expected = EDN::Map(expected_map);
-        println!("expected={:?}", expected);
+    return Ok(EDN::Map(vec_to_map(items.to_vec())));
+}
 
-        match read_string(input) {
-            Ok(parsed) => assert_eq!(parsed, expected),
-            Err(e) => panic!("Failed to parse '{}': {}", input, e),
-        }
+fn parse_map(astr: &str) -> Result<EDN, String> {
+    let astr = astr.trim();
+    if astr.starts_with("{") {
+        return parse_map_helper(&mut astr.chars(), 0, &mut Vec::new());
+    } else {
+        return Err("cannot parse set".to_string());
     }
+}
 
-    #[test]
-    fn test_read_string_set() {
-        let input = "#{{1 2} {3 4}}";
-
-        let mut map1 = HashMap::new();
-        map1.insert(EDN::Integer(BigInt::from(1)), EDN::Integer(BigInt::from(2)));
-
-        let mut map2 = HashMap::new();
-        map2.insert(EDN::Integer(BigInt::from(3)), EDN::Integer(BigInt::from(4)));
-
-        let mut expected_set = HashSet::new();
-        expected_set.insert(EDN::Map(map1));
-        expected_set.insert(EDN::Map(map2));
-
-        let expected = EDN::Set(expected_set);
-
-        match read_string(input) {
-            Ok(parsed) => assert_eq!(parsed, expected),
-            Err(e) => panic!("Failed to parse '{}': {}", input, e),
+fn concat(a_list: &EDN, b_list: &EDN) -> EDN {
+    match (a_list, b_list) {
+        (EDN::List(a), EDN::List(b)) => {
+            let mut result = a.clone();
+            result.extend(b.clone());
+            EDN::List(result)
         }
+        _ => panic!("Both arguments must be EDN::List"),
     }
+}
+
+fn into(a_list: &EDN, an_item: &EDN) -> EDN {
+    match (a_list, an_item) {
+        (EDN::List(a), EDN::List(b)) => {
+            let mut result = a.clone();
+            result.push(EDN::List(b.clone()));
+            EDN::List(result)
+        }
+        _ => panic!("Both arguments must be EDN::List"),
+    }
+}
+
+pub fn read_string(astr: &str) -> Result<EDN, String> {
+    let astr = astr.trim();
+    parse_all(astr)
+        .or_else(|_| parse_first_valid_expr(astr))
+        .or_else(|_| parse_symbol(astr))
 }
