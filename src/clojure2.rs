@@ -236,7 +236,7 @@ fn parse_symbol(astr: &str) -> Result<EDN, String> {
     if symbol_regex.is_match(astr) {
         return Ok(EDN::Symbol(astr.to_string()));
     }
-    Ok(EDN::Symbol(astr.to_string()))
+    return Err(format!("Cannot parse symbol {:?}", astr));
 }
 
 fn parse_string(astr: &str) -> Result<EDN, String> {
@@ -451,6 +451,19 @@ fn vec_to_set(items: Vec<EDN>) -> EDN {
     EDN::Set(set)
 }
 
+fn vec_to_map<V>(v: Vec<V>) -> HashMap<V, V>
+where
+    V: Eq + Hash + Clone,
+{
+    let mut map = HashMap::new();
+    for pair in v.chunks(2) {
+        if let [key, value] = pair {
+            map.insert(key.clone(), value.clone());
+        }
+    }
+    return map;
+}
+
 fn is_odd(i: i8) -> bool {
     i % 2 == 1
 }
@@ -466,7 +479,6 @@ fn parse_set_helper(
         if ch != ' ' && ch != ',' && ch != '}' {
             buffer.push(ch);
         }
-        println!("ch={:?} buffer={:?} level={:?} ", ch, buffer, nesting_level);
         if buffer == "(" {
             if nesting_level > 0 {
                 let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
@@ -546,48 +558,101 @@ fn parse_set(astr: &str) -> Result<EDN, String> {
     }
 }
 
+fn parse_map_helper(
+    astr_iter: &mut Chars,
+    mut nesting_level: i8,
+    items: &mut Vec<EDN>,
+) -> Result<EDN, String> {
+    let mut buffer = String::new();
+
+    while let Some(ch) = astr_iter.next() {
+        if ch != ' ' && ch != ',' && ch != '}' {
+            buffer.push(ch);
+        }
+        if buffer == "(" {
+            if nesting_level > 0 {
+                let a_collection = parse_list_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_collection);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "[" {
+            if nesting_level > 0 {
+                let a_vector = parse_vector_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_vector);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "#{" {
+            if nesting_level > 0 {
+                let a_set = parse_set_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if buffer == "{" {
+            if nesting_level > 0 {
+                let a_set = parse_map_helper(astr_iter, 1, &mut Vec::new());
+                items.extend(a_set);
+            } else {
+                nesting_level += 1;
+            }
+            buffer.clear();
+        } else if ch == ')' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ']' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == '}' {
+            nesting_level -= 1;
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+            }
+            buffer.clear();
+            if nesting_level == 0 {
+                break;
+            }
+        } else if ch == ' ' || ch == ',' {
+            if !buffer.is_empty() {
+                let edn_val = read_string(&buffer.trim()).unwrap();
+                items.push(edn_val);
+                buffer.clear();
+            }
+        }
+    }
+
+    if nesting_level != 0 {
+        return Err("Cannot parse List".to_string());
+    }
+
+    return Ok(EDN::Map(vec_to_map(items.to_vec())));
+}
+
 fn parse_map(astr: &str) -> Result<EDN, String> {
     let astr = astr.trim();
     if astr.starts_with("{") {
-        let iter = &mut astr.chars();
-        let mut nesting_level = 0;
-        let mut buffer = String::new();
-        let mut space_count = 0;
-        let mut map: HashMap<EDN, EDN> = HashMap::new();
-
-        while let Some(ch) = iter.next() {
-            if ch != '{' && ch != '}' {
-                buffer.push(ch);
-            }
-
-            if is_odd(space_count) && !buffer.trim().is_empty() {
-                //println!("odd1 map={:?}",map);
-                let mut kv_pair_iter = buffer.split_whitespace();
-                let k = kv_pair_iter.next().unwrap();
-                let v = kv_pair_iter.next().unwrap();
-
-                println!("k={:?} v={:?}", k, v);
-                map.insert(read_string(k).unwrap(), read_string(v).unwrap());
-                buffer.clear();
-            }
-
-            if ch == ' ' {
-                space_count += 1;
-            }
-
-            // println!(
-            //     "ch={:?} buffer={:?} count{:?}, level={:?} map={:?}",
-            //     ch, buffer, space_count, nesting_level, map
-            // );
-        }
-
-        println!(
-            "buffe-finalr={:?} level={:?} map={:?}",
-            buffer, nesting_level, map
-        );
-        return Ok(EDN::Nil);
+        return parse_map_helper(&mut astr.chars(), 0, &mut Vec::new());
     } else {
-        return Err("cannot parse list".to_string());
+        return Err("cannot parse set".to_string());
     }
 }
 
