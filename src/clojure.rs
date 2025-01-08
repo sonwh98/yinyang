@@ -23,6 +23,41 @@ pub enum EDN {
     Function(fn(EDN) -> EDN),
 }
 
+#[derive(Debug)]
+struct CollectionConfig {
+    opening: &'static str,
+    closing: &'static str,
+    constructor: fn(Vec<EDN>) -> EDN,
+}
+
+impl EDN {
+    fn collection_config(collection_type: &EDN) -> CollectionConfig {
+        match collection_type {
+            EDN::List(_) => CollectionConfig {
+                opening: "(",
+                closing: ")",
+                constructor: |items| EDN::List(items),
+            },
+            EDN::Vector(_) => CollectionConfig {
+                opening: "[",
+                closing: "]",
+                constructor: |items| EDN::Vector(items),
+            },
+            EDN::Set(_) => CollectionConfig {
+                opening: "#{",
+                closing: "}",
+                constructor: vec_to_set,
+            },
+            EDN::Map(_) => CollectionConfig {
+                opening: "{",
+                closing: "}",
+                constructor: |items| EDN::Map(vec_to_map(items)),
+            },
+            _ => panic!("Not a collection type"),
+        }
+    }
+}
+
 impl Eq for EDN {}
 
 impl PartialEq for EDN {
@@ -160,50 +195,139 @@ impl fmt::Display for EDN {
     }
 }
 
-// Collection parsing infrastructure
-#[derive(Debug)]
-enum CollectionType {
-    List,
-    Vector,
-    Set,
-    Map,
-}
+fn parse_collection_helper(
+    astr_iter: &mut Chars,
+    mut nesting_level: i8,
+    items: &mut Vec<EDN>,
+    collection_type: &EDN,
+) -> Result<EDN, String> {
+    let mut buffer = String::new();
+    let config = EDN::collection_config(collection_type);
+    let closing_char = config.closing.chars().next().unwrap();
 
-#[derive(Debug)]
-struct CollectionConfig {
-    opening: &'static str,
-    closing: char,
-    constructor: fn(Vec<EDN>) -> EDN,
-}
-
-impl CollectionType {
-    fn config(&self) -> CollectionConfig {
-        match self {
-            CollectionType::List => CollectionConfig {
-                opening: "(",
-                closing: ')',
-                constructor: |items| EDN::List(items),
-            },
-            CollectionType::Vector => CollectionConfig {
-                opening: "[",
-                closing: ']',
-                constructor: |items| EDN::Vector(items),
-            },
-            CollectionType::Set => CollectionConfig {
-                opening: "#{",
-                closing: '}',
-                constructor: vec_to_set,
-            },
-            CollectionType::Map => CollectionConfig {
-                opening: "{",
-                closing: '}',
-                constructor: |items| EDN::Map(vec_to_map(items)),
-            },
+    while let Some(ch) = astr_iter.next() {
+        if !matches!(ch, ' ' | ',' | ')' | ']' | '}') {
+            buffer.push(ch);
         }
+
+        match buffer.as_str() {
+            "(" => {
+                handle_nested_collection(
+                    &EDN::List(Vec::new()),
+                    astr_iter,
+                    &mut nesting_level,
+                    items,
+                    &mut buffer,
+                )?;
+            }
+            "[" => {
+                handle_nested_collection(
+                    &EDN::Vector(Vec::new()),
+                    astr_iter,
+                    &mut nesting_level,
+                    items,
+                    &mut buffer,
+                )?;
+            }
+            "#{" => {
+                handle_nested_collection(
+                    &EDN::Set(HashSet::new()),
+                    astr_iter,
+                    &mut nesting_level,
+                    items,
+                    &mut buffer,
+                )?;
+            }
+            "{" => {
+                handle_nested_collection(
+                    &EDN::Map(HashMap::new()),
+                    astr_iter,
+                    &mut nesting_level,
+                    items,
+                    &mut buffer,
+                )?;
+            }
+            _ => {
+                if ch == closing_char {
+                    nesting_level -= 1;
+                    handle_buffer(&mut buffer, items);
+                    if nesting_level == 0 {
+                        break;
+                    }
+                } else if matches!(ch, ' ' | ',') {
+                    handle_buffer(&mut buffer, items);
+                }
+            }
+        }
+    }
+
+    if nesting_level != 0 {
+        return Err("Unmatched delimiters".to_string());
+    }
+
+    Ok((config.constructor)(items.to_vec()))
+}
+
+fn handle_nested_collection(
+    collection_type: &EDN,
+    astr_iter: &mut Chars,
+    nesting_level: &mut i8,
+    items: &mut Vec<EDN>,
+    buffer: &mut String,
+) -> Result<(), String> {
+    if *nesting_level > 0 {
+        let nested = parse_collection_helper(astr_iter, 1, &mut Vec::new(), collection_type)?;
+        items.push(nested);
+    } else {
+        *nesting_level += 1;
+    }
+    buffer.clear();
+    Ok(())
+}
+
+fn handle_buffer(buffer: &mut String, items: &mut Vec<EDN>) {
+    if !buffer.is_empty() {
+        if let Ok(edn_val) = read_string(&buffer.trim()) {
+            items.push(edn_val);
+        }
+        buffer.clear();
     }
 }
 
-// Basic type parsers
+fn parse_collection_with_type(astr: &str, collection_type: &EDN) -> Result<EDN, String> {
+    let astr = astr.trim();
+    let config = EDN::collection_config(collection_type);
+
+    if astr.starts_with(config.opening) {
+        let mut items = Vec::new();
+        let result = parse_collection_helper(&mut astr.chars(), 0, &mut items, collection_type)?;
+        Ok(result)
+    } else {
+        Err(format!("Cannot parse {}", config.opening))
+    }
+}
+
+fn vec_to_set(items: Vec<EDN>) -> EDN {
+    let mut set = HashSet::new();
+    for item in items {
+        set.insert(item);
+    }
+    EDN::Set(set)
+}
+
+fn vec_to_map<V>(v: Vec<V>) -> HashMap<V, V>
+where
+    V: Eq + Hash + Clone,
+{
+    let mut map = HashMap::new();
+    for pair in v.chunks(2) {
+        if let [key, value] = pair {
+            map.insert(key.clone(), value.clone());
+        }
+    }
+    map
+}
+
 fn parse_nil(astr: &str) -> Result<EDN, String> {
     if astr == "nil" || astr.is_empty() {
         Ok(EDN::Nil)
@@ -270,161 +394,22 @@ fn parse_symbol(astr: &str) -> Result<EDN, String> {
     }
 }
 
-// Collection parsing helpers
-fn parse_collection_helper(
-    astr_iter: &mut Chars,
-    mut nesting_level: i8,
-    items: &mut Vec<EDN>,
-) -> Result<EDN, String> {
-    let mut buffer = String::new();
-    
-    while let Some(ch) = astr_iter.next() {
-        if !matches!(ch, ' ' | ',' | ')' | ']' | '}') {
-            buffer.push(ch);
-        }
-	println!("buffer={:?} ch={:?} level={:?}", buffer, ch, nesting_level);
-        match buffer.as_str() {
-            "(" => {
-                handle_nested_collection(
-                    CollectionType::List,
-                    astr_iter,
-                    &mut nesting_level,
-                    items,
-                    &mut buffer,
-                )?;
-            }
-            "[" => {
-                handle_nested_collection(
-                    CollectionType::Vector,
-                    astr_iter,
-                    &mut nesting_level,
-                    items,
-                    &mut buffer,
-                )?;
-            }
-            "#{" => {
-                handle_nested_collection(
-                    CollectionType::Set,
-                    astr_iter,
-                    &mut nesting_level,
-                    items,
-                    &mut buffer,
-                )?;
-            }
-            "{" => {
-                handle_nested_collection(
-                    CollectionType::Map,
-                    astr_iter,
-                    &mut nesting_level,
-                    items,
-                    &mut buffer,
-                )?;
-            }
-            _ => {
-                if matches!(ch, ')' | ']' | '}') {
-                    nesting_level -= 1;
-                    handle_buffer(&mut buffer, items)?;
-                    if nesting_level == 0 {
-                        break;
-                    }
-                } else if matches!(ch, ' ' | ',') {
-                    handle_buffer(&mut buffer, items)?;
-                }
-            }
-        }
-    }
-
-    if nesting_level != 0 {
-        return Err("Unmatched delimiters".to_string());
-    }
-
-    Ok((CollectionType::List.config().constructor)(items.to_vec()))
-}
-
-fn handle_nested_collection(
-    collection_type: CollectionType,
-    astr_iter: &mut Chars,
-    nesting_level: &mut i8,
-    items: &mut Vec<EDN>,
-    buffer: &mut String,
-) -> Result<(), String> {
-    if *nesting_level > 0 {
-        let nested = parse_collection_helper(astr_iter, 1, &mut Vec::new())?;
-        items.push(nested);
-    } else {
-        *nesting_level += 1;
-    }
-    buffer.clear();
-    Ok(())
-}
-
-fn handle_buffer(buffer: &mut String, items: &mut Vec<EDN>) -> Result<(), String> {
-    if !buffer.is_empty() {
-        if let Ok(edn_val) = read_string(&buffer.trim()) {
-            items.push(edn_val);
-        }
-        buffer.clear();
-    }
-    Ok(())
-}
-
-// Collection parsers
 fn parse_list(astr: &str) -> Result<EDN, String> {
-    parse_collection_with_type(astr, CollectionType::List)
+    parse_collection_with_type(astr, &EDN::List(Vec::new()))
 }
 
 fn parse_vector(astr: &str) -> Result<EDN, String> {
-    parse_collection_with_type(astr, CollectionType::Vector)
+    parse_collection_with_type(astr, &EDN::Vector(Vec::new()))
 }
 
 fn parse_set(astr: &str) -> Result<EDN, String> {
-    parse_collection_with_type(astr, CollectionType::Set)
+    parse_collection_with_type(astr, &EDN::Set(HashSet::new()))
 }
 
 fn parse_map(astr: &str) -> Result<EDN, String> {
-    parse_collection_with_type(astr, CollectionType::Map)
+    parse_collection_with_type(astr, &EDN::Map(HashMap::new()))
 }
 
-fn parse_collection_with_type(astr: &str, collection_type: CollectionType) -> Result<EDN, String> {
-    let astr = astr.trim();
-    let config = collection_type.config();
-    println!("astr={:?} config={:?}",astr, config);
-
-    if astr.starts_with(config.opening) {
-        let mut items = Vec::new();
-        let result = parse_collection_helper(&mut astr.chars(), 0, &mut items)?;
-        Ok((config.constructor)(match result {
-            EDN::List(items) => items,
-            _ => unreachable!(),
-        }))
-    } else {
-        Err(format!("Cannot parse {}", config.opening))
-    }
-}
-
-// Utility functions
-fn vec_to_set(items: Vec<EDN>) -> EDN {
-    let mut set = HashSet::new();
-    for item in items {
-        set.insert(item);
-    }
-    EDN::Set(set)
-}
-
-fn vec_to_map<V>(v: Vec<V>) -> HashMap<V, V>
-where
-    V: Eq + Hash + Clone,
-{
-    let mut map = HashMap::new();
-    for pair in v.chunks(2) {
-        if let [key, value] = pair {
-            map.insert(key.clone(), value.clone());
-        }
-    }
-    map
-}
-
-// Parser entry points
 fn parse_all(astr: &str) -> Result<EDN, String> {
     parse_nil(astr)
         .or_else(|_| parse_bool(astr))
@@ -433,13 +418,14 @@ fn parse_all(astr: &str) -> Result<EDN, String> {
         .or_else(|_| parse_keyword(astr))
         .or_else(|_| parse_string(astr))
         .or_else(|_| parse_map(astr))
+        .or_else(|_| parse_set(astr))
         .or_else(|_| parse_vector(astr))
         .or_else(|_| parse_list(astr))
 }
 
 fn parse_first_valid_expr(astr: &str) -> Result<EDN, String> {
     let first = astr.split_whitespace().next().unwrap_or("");
-    parse_all(first).or_else(|_| parse_symbol(first))
+    parse_all(first)
 }
 
 pub fn read_string(astr: &str) -> Result<EDN, String> {
