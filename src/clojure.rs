@@ -160,7 +160,6 @@ impl fmt::Display for EDN {
     }
 }
 
-// Collection parsing infrastructure
 #[derive(Debug)]
 enum CollectionType {
     List,
@@ -203,7 +202,6 @@ impl CollectionType {
     }
 }
 
-// Basic type parsers
 fn parse_nil(astr: &str) -> Result<EDN, String> {
     if astr == "nil" || astr.is_empty() {
         Ok(EDN::Nil)
@@ -270,19 +268,19 @@ fn parse_symbol(astr: &str) -> Result<EDN, String> {
     }
 }
 
-// Collection parsing helpers
 fn parse_collection_helper(
     astr_iter: &mut Chars,
     mut nesting_level: i8,
     items: &mut Vec<EDN>,
+    collection_type: CollectionType,
 ) -> Result<EDN, String> {
     let mut buffer = String::new();
-    
+
     while let Some(ch) = astr_iter.next() {
         if !matches!(ch, ' ' | ',' | ')' | ']' | '}') {
             buffer.push(ch);
         }
-	println!("buffer={:?} ch={:?} level={:?}", buffer, ch, nesting_level);
+
         match buffer.as_str() {
             "(" => {
                 handle_nested_collection(
@@ -338,7 +336,7 @@ fn parse_collection_helper(
         return Err("Unmatched delimiters".to_string());
     }
 
-    Ok((CollectionType::List.config().constructor)(items.to_vec()))
+    Ok((collection_type.config().constructor)(items.to_vec()))
 }
 
 fn handle_nested_collection(
@@ -349,7 +347,7 @@ fn handle_nested_collection(
     buffer: &mut String,
 ) -> Result<(), String> {
     if *nesting_level > 0 {
-        let nested = parse_collection_helper(astr_iter, 1, &mut Vec::new())?;
+        let nested = parse_collection_helper(astr_iter, 1, &mut Vec::new(), collection_type)?;
         items.push(nested);
     } else {
         *nesting_level += 1;
@@ -368,7 +366,6 @@ fn handle_buffer(buffer: &mut String, items: &mut Vec<EDN>) -> Result<(), String
     Ok(())
 }
 
-// Collection parsers
 fn parse_list(astr: &str) -> Result<EDN, String> {
     parse_collection_with_type(astr, CollectionType::List)
 }
@@ -388,21 +385,16 @@ fn parse_map(astr: &str) -> Result<EDN, String> {
 fn parse_collection_with_type(astr: &str, collection_type: CollectionType) -> Result<EDN, String> {
     let astr = astr.trim();
     let config = collection_type.config();
-    println!("astr={:?} config={:?}",astr, config);
 
     if astr.starts_with(config.opening) {
         let mut items = Vec::new();
-        let result = parse_collection_helper(&mut astr.chars(), 0, &mut items)?;
-        Ok((config.constructor)(match result {
-            EDN::List(items) => items,
-            _ => unreachable!(),
-        }))
+        let result = parse_collection_helper(&mut astr.chars(), 0, &mut items, collection_type)?;
+        Ok(result)
     } else {
         Err(format!("Cannot parse {}", config.opening))
     }
 }
 
-// Utility functions
 fn vec_to_set(items: Vec<EDN>) -> EDN {
     let mut set = HashSet::new();
     for item in items {
@@ -424,7 +416,6 @@ where
     map
 }
 
-// Parser entry points
 fn parse_all(astr: &str) -> Result<EDN, String> {
     parse_nil(astr)
         .or_else(|_| parse_bool(astr))
@@ -433,13 +424,14 @@ fn parse_all(astr: &str) -> Result<EDN, String> {
         .or_else(|_| parse_keyword(astr))
         .or_else(|_| parse_string(astr))
         .or_else(|_| parse_map(astr))
+        .or_else(|_| parse_set(astr))
         .or_else(|_| parse_vector(astr))
         .or_else(|_| parse_list(astr))
 }
 
 fn parse_first_valid_expr(astr: &str) -> Result<EDN, String> {
     let first = astr.split_whitespace().next().unwrap_or("");
-    parse_all(first).or_else(|_| parse_symbol(first))
+    parse_all(first)
 }
 
 pub fn read_string(astr: &str) -> Result<EDN, String> {
