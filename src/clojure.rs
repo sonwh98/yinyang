@@ -30,6 +30,12 @@ struct CollectionConfig {
     constructor: fn(Vec<EDN>) -> EDN,
 }
 
+#[derive(Debug)]
+enum ParseError {
+    NestingError(String),
+    RegularError(String),
+}
+
 impl EDN {
     fn collection_config(collection_type: &EDN) -> CollectionConfig {
         match collection_type {
@@ -408,6 +414,10 @@ fn parse_set(astr: &str) -> Result<EDN, String> {
 
 fn parse_map(astr: &str) -> Result<EDN, String> {
     parse_collection_with_type(astr, &EDN::Map(HashMap::new()))
+}
+
+fn try_parse(parser: fn(&str) -> Result<EDN, String>, input: &str) -> Result<EDN, ParseError> {
+    parser(input).map_err(ParseError::RegularError)
 }
 
 fn parse_all(astr: &str) -> Result<EDN, String> {
