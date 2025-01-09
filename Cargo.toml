@@ -1,0 +1,14 @@
+[package]
+name = "yinyang"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bigdecimal = "0.4.3"
+num-bigint = "0.4.5"  # Required for BigInt dependency used by bigdecimal
+regex = "1.10.5"
+log = "*"
+env_logger = "*"
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
