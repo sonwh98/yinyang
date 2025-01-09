@@ -257,12 +257,12 @@ fn parse_collection_helper(
             _ => {
                 if ch == closing_char {
                     nesting_level -= 1;
-                    handle_buffer(&mut buffer, items);
+                    parse_buffer(&mut buffer, items);
                     if nesting_level == 0 {
                         break;
                     }
                 } else if matches!(ch, ' ' | ',') {
-                    handle_buffer(&mut buffer, items);
+                    parse_buffer(&mut buffer, items);
                 }
             }
         }
@@ -295,7 +295,7 @@ fn handle_nested_collection(
     Ok(())
 }
 
-fn handle_buffer(buffer: &mut String, items: &mut Vec<EDN>) {
+fn parse_buffer(buffer: &mut String, items: &mut Vec<EDN>) {
     if !buffer.is_empty() {
         if let Ok(edn_val) = read_string(&buffer.trim()) {
             items.push(edn_val);
