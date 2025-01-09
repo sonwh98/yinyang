@@ -31,7 +31,7 @@ struct CollectionConfig {
 }
 
 #[derive(Debug)]
-enum ParseError {
+pub enum ParseError {
     NestingError(String),
     RegularError(String),
 }
@@ -206,7 +206,8 @@ fn parse_collection_helper(
     mut nesting_level: i8,
     items: &mut Vec<EDN>,
     collection_type: &EDN,
-) -> Result<EDN, String> {
+) -> Result<EDN, ParseError> {
+    let orig_str: String = astr_iter.clone().collect();
     let mut buffer = String::new();
     let config = EDN::collection_config(collection_type);
     let closing_char = config.closing.chars().next().unwrap();
@@ -215,7 +216,7 @@ fn parse_collection_helper(
         if !matches!(ch, ' ' | ',' | ')' | ']' | '}') {
             buffer.push(ch);
         }
-
+        //println!("ch={:?} buffer={:?}", ch, buffer);
         match buffer.as_str() {
             "(" => {
                 handle_nested_collection(
@@ -268,7 +269,10 @@ fn parse_collection_helper(
     }
 
     if nesting_level != 0 {
-        return Err("Unmatched delimiters".to_string());
+        return Err(ParseError::NestingError(format!(
+            "Unmatched delimiters {:?} buffer={:?}",
+            orig_str, buffer
+        )));
     }
 
     Ok((config.constructor)(items.to_vec()))
@@ -280,7 +284,7 @@ fn handle_nested_collection(
     nesting_level: &mut i8,
     items: &mut Vec<EDN>,
     buffer: &mut String,
-) -> Result<(), String> {
+) -> Result<(), ParseError> {
     if *nesting_level > 0 {
         let nested = parse_collection_helper(astr_iter, 1, &mut Vec::new(), collection_type)?;
         items.push(nested);
@@ -300,7 +304,7 @@ fn handle_buffer(buffer: &mut String, items: &mut Vec<EDN>) {
     }
 }
 
-fn parse_collection_with_type(astr: &str, collection_type: &EDN) -> Result<EDN, String> {
+fn parse_collection_with_type(astr: &str, collection_type: &EDN) -> Result<EDN, ParseError> {
     let astr = astr.trim();
     let config = EDN::collection_config(collection_type);
 
@@ -309,7 +313,10 @@ fn parse_collection_with_type(astr: &str, collection_type: &EDN) -> Result<EDN, 
         let result = parse_collection_helper(&mut astr.chars(), 0, &mut items, collection_type)?;
         Ok(result)
     } else {
-        Err(format!("Cannot parse {}", config.opening))
+        Err(ParseError::RegularError(format!(
+            "Cannot parse {}",
+            config.opening
+        )))
     }
 }
 
@@ -334,41 +341,44 @@ where
     map
 }
 
-fn parse_nil(astr: &str) -> Result<EDN, String> {
+fn parse_nil(astr: &str) -> Result<EDN, ParseError> {
     if astr == "nil" || astr.is_empty() {
         Ok(EDN::Nil)
     } else {
-        Err(format!("No EDN::Nil: {}", astr))
+        Err(ParseError::RegularError(format!("No EDN::Nil: {}", astr)))
     }
 }
 
-fn parse_bool(astr: &str) -> Result<EDN, String> {
+fn parse_bool(astr: &str) -> Result<EDN, ParseError> {
     astr.parse::<bool>()
         .map(EDN::Bool)
-        .map_err(|_| format!("No EDN::Bool: {}", astr))
+        .map_err(|_| ParseError::RegularError(format!("No EDN::Bool: {}", astr)))
 }
 
-fn parse_int(astr: &str) -> Result<EDN, String> {
+fn parse_int(astr: &str) -> Result<EDN, ParseError> {
     astr.parse::<BigInt>()
         .map(EDN::Integer)
-        .map_err(|_| format!("No EDN::Integer: {}", astr))
+        .map_err(|_| ParseError::RegularError(format!("No EDN::Integer: {}", astr)))
 }
 
-fn parse_float(astr: &str) -> Result<EDN, String> {
+fn parse_float(astr: &str) -> Result<EDN, ParseError> {
     BigDecimal::from_str(astr)
         .map(EDN::Float)
-        .map_err(|_| format!("No EDN::Float: {}", astr))
+        .map_err(|_| ParseError::RegularError(format!("No EDN::Float: {}", astr)))
 }
 
-fn parse_keyword(astr: &str) -> Result<EDN, String> {
+fn parse_keyword(astr: &str) -> Result<EDN, ParseError> {
     if astr.starts_with(':') {
         Ok(EDN::Keyword(astr.to_string()))
     } else {
-        Err(format!("No EDN::Keyword: {}", astr))
+        Err(ParseError::RegularError(format!(
+            "No EDN::Keyword: {}",
+            astr
+        )))
     }
 }
 
-fn parse_string(astr: &str) -> Result<EDN, String> {
+fn parse_string(astr: &str) -> Result<EDN, ParseError> {
     if astr.starts_with('"') {
         let mut buffer = String::new();
         let mut chars = astr.chars();
@@ -381,10 +391,10 @@ fn parse_string(astr: &str) -> Result<EDN, String> {
             buffer.push(ch);
         }
     }
-    Err("Cannot parse string".to_string())
+    Err(ParseError::RegularError("Cannot parse string".to_string()))
 }
 
-fn parse_symbol(astr: &str) -> Result<EDN, String> {
+fn parse_symbol(astr: &str) -> Result<EDN, ParseError> {
     let symbol_regex = Regex::new(
         r"(?x)
         [\w.!@$%^&|=<>?+/~*^-]
@@ -396,51 +406,66 @@ fn parse_symbol(astr: &str) -> Result<EDN, String> {
     if symbol_regex.is_match(astr) {
         Ok(EDN::Symbol(astr.to_string()))
     } else {
-        Err(format!("Cannot parse symbol {:?}", astr))
+        Err(ParseError::RegularError(format!(
+            "Cannot parse symbol {:?}",
+            astr
+        )))
     }
 }
 
-fn parse_list(astr: &str) -> Result<EDN, String> {
+fn parse_list(astr: &str) -> Result<EDN, ParseError> {
     parse_collection_with_type(astr, &EDN::List(Vec::new()))
 }
 
-fn parse_vector(astr: &str) -> Result<EDN, String> {
+fn parse_vector(astr: &str) -> Result<EDN, ParseError> {
     parse_collection_with_type(astr, &EDN::Vector(Vec::new()))
 }
 
-fn parse_set(astr: &str) -> Result<EDN, String> {
+fn parse_set(astr: &str) -> Result<EDN, ParseError> {
     parse_collection_with_type(astr, &EDN::Set(HashSet::new()))
 }
 
-fn parse_map(astr: &str) -> Result<EDN, String> {
+fn parse_map(astr: &str) -> Result<EDN, ParseError> {
     parse_collection_with_type(astr, &EDN::Map(HashMap::new()))
 }
 
-fn try_parse(parser: fn(&str) -> Result<EDN, String>, input: &str) -> Result<EDN, ParseError> {
-    parser(input).map_err(ParseError::RegularError)
+fn parse_all(astr: &str) -> Result<EDN, ParseError> {
+    let parsers: Vec<fn(&str) -> Result<EDN, ParseError>> = vec![
+        parse_nil,
+        parse_bool,
+        parse_int,
+        parse_float,
+        parse_keyword,
+        parse_string,
+        parse_map,
+        parse_set,
+        parse_vector,
+        parse_list,
+        parse_first_valid_expr,
+    ];
+
+    for parser in parsers {
+        match parser(astr) {
+            Ok(result) => return Ok(result),
+            Err(ParseError::NestingError(e)) => {
+                return Err(ParseError::NestingError(e));
+            }
+            Err(ParseError::RegularError(_)) => continue,
+        }
+    }
+
+    Err(ParseError::RegularError("No valid EDN found".to_string()))
 }
 
-fn parse_all(astr: &str) -> Result<EDN, String> {
-    parse_nil(astr)
-        .or_else(|_| parse_bool(astr))
-        .or_else(|_| parse_int(astr))
-        .or_else(|_| parse_float(astr))
-        .or_else(|_| parse_keyword(astr))
-        .or_else(|_| parse_string(astr))
-        .or_else(|_| parse_map(astr))
-        .or_else(|_| parse_set(astr))
-        .or_else(|_| parse_vector(astr))
-        .or_else(|_| parse_list(astr))
-}
-
-fn parse_first_valid_expr(astr: &str) -> Result<EDN, String> {
+fn parse_first_valid_expr(astr: &str) -> Result<EDN, ParseError> {
     let first = astr.split_whitespace().next().unwrap_or("");
     parse_all(first)
 }
 
-pub fn read_string(astr: &str) -> Result<EDN, String> {
+pub fn read_string(astr: &str) -> Result<EDN, ParseError> {
     let astr = astr.trim();
-    parse_all(astr)
-        .or_else(|_| parse_first_valid_expr(astr))
-        .or_else(|_| parse_symbol(astr))
+    parse_all(astr).or_else(|e| match e {
+        ParseError::NestingError(_) => return Err(e),
+        ParseError::RegularError(_) => return parse_symbol(astr),
+    })
 }
