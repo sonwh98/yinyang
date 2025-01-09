@@ -395,15 +395,29 @@ fn parse_string(astr: &str) -> Result<EDN, ParseError> {
 }
 
 fn parse_symbol(astr: &str) -> Result<EDN, ParseError> {
+    // Skip reserved names
+    if matches!(astr, "nil" | "true" | "false") {
+        return Err(ParseError::RegularError(format!("Reserved name: {}", astr)));
+    }
+
     let symbol_regex = Regex::new(
-        r"(?x)
-        [\w.!@$%^&|=<>?+/~*^-]
-        [-a-zA-Z0-9_!@$%^&|=<>?.+/~*^-]*
+        r"(?x)                      # Enable comments and ignore whitespace
+        ^                           # Start of string
+        (?:                         # Non-capturing group for first character
+            [a-zA-Z*+!_?$%&=<>.'#-] # First char: non-numeric, allowed special chars
+            |                       # OR
+            [0-9]+[a-zA-Z]+         # Numbers but must be followed by letters
+        )
+        (?:                         # Rest of the symbol
+            [a-zA-Z0-9*+!_?$%&=<>.#-]* # Standard allowed chars
+            (?:/[a-zA-Z0-9*+!_?$%&=<>.#-]+)? # Optional namespace part
+        )
+        $                          # End of string
         ",
     )
     .unwrap();
 
-    if symbol_regex.is_match(astr) {
+    if symbol_regex.is_match(astr) && !astr.ends_with(':') {
         Ok(EDN::Symbol(astr.to_string()))
     } else {
         Err(ParseError::RegularError(format!(
