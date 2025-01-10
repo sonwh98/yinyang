@@ -21,7 +21,6 @@ pub enum EDN {
     Vector(Vec<EDN>),
     Map(HashMap<EDN, EDN>),
     Set(HashSet<EDN>),
-    Function(fn(EDN) -> EDN),
 }
 
 #[derive(Debug)]
@@ -139,10 +138,6 @@ impl Hash for EDN {
                     item.hash(state);
                 }
             }
-            EDN::Function(f) => {
-                state.write_u8(11);
-                (f as *const _ as usize).hash(state);
-            }
         }
     }
 }
@@ -197,7 +192,6 @@ impl fmt::Display for EDN {
                 }
                 write!(f, "}}")
             }
-            EDN::Function(func) => write!(f, "Function({:p})", func),
         }
     }
 }
