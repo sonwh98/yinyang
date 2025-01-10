@@ -1,5 +1,5 @@
 use bigdecimal::BigDecimal;
-use log::{debug, error, info, trace, warn};
+use log::debug;
 use num_bigint::BigInt;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
@@ -402,16 +402,13 @@ pub fn parse_symbol(astr: &str) -> Result<EDN, ParseError> {
         return Err(ParseError::RegularError(format!("Reserved name: {}", astr)));
     }
 
-
     let symbol_regex = Regex::new(
         r"^[a-zA-Z*+!_?$%&=<>'#\-][a-zA-Z0-9*+!_?$%&=<>'#\-\.]*(?:/[a-zA-Z0-9*+!_?$%&=<>'#\-\.]+)?$"
     ).unwrap();
-    
-    if symbol_regex.is_match(astr) && !astr.ends_with(':') {
 
+    if symbol_regex.is_match(astr) && !astr.ends_with(':') {
         Ok(EDN::Symbol(astr.to_string()))
     } else {
-
         Err(ParseError::RegularError(format!(
             "Cannot parse symbol {:?}",
             astr
@@ -447,7 +444,6 @@ fn parse_all(astr: &str) -> Result<EDN, ParseError> {
         parse_set,
         parse_vector,
         parse_list,
-        parse_first_valid_expr,
     ];
 
     for parser in parsers {
@@ -471,13 +467,13 @@ fn parse_first_valid_expr(astr: &str) -> Result<EDN, ParseError> {
 
 pub fn read_string(astr: &str) -> Result<EDN, ParseError> {
     let astr = astr.trim();
-    parse_all(astr).or_else(|e| {
-        match e {
+    parse_all(astr)
+        .or_else(|_| parse_first_valid_expr(astr))
+        .or_else(|e| match e {
             ParseError::NestingError(_) => return Err(e),
             ParseError::RegularError(_) => {
                 debug!("blah");
                 return parse_symbol(astr);
             }
-        }
-    })
+        })
 }
