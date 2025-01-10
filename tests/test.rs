@@ -19,7 +19,7 @@ mod tests {
     use num_bigint::BigInt;
 
     #[test]
-    fn test_read_string() {
+    fn test_single_value_parsing() {
         // Test for Nil
         assert_eq!(read_string("nil").unwrap(), EDN::Nil);
 
@@ -48,73 +48,77 @@ mod tests {
             EDN::String("hello".to_string())
         );
 
-        // Test for Symbol
-        // assert_eq!(
-        //     read_string("symbol").unwrap(),
-        //     EDN::Symbol("symbol".to_string())
-        // );
+        //Test for Symbol
+        assert_eq!(
+            read_string("symbol").unwrap(),
+            EDN::Symbol("symbol".to_string())
+        );
     }
 
-    // #[test]
-    // fn test_collection_parsing() {
-    //     // Test for List
-    //     assert_eq!(
-    //         read_string("(1 2 3)").unwrap(),
-    //         EDN::List(vec![
-    //             EDN::Integer(BigInt::from(1)),
-    //             EDN::Integer(BigInt::from(2)),
-    //             EDN::Integer(BigInt::from(3)),
-    //         ])
-    //     );
+    #[test]
+    fn test_list_parsing() {
+        assert_eq!(
+            read_string("(1 2 3)").unwrap(),
+            EDN::List(vec![
+                EDN::Integer(BigInt::from(1)),
+                EDN::Integer(BigInt::from(2)),
+                EDN::Integer(BigInt::from(3)),
+            ])
+        );
+    }
 
-    //     // Test for Vector
-    //     assert_eq!(
-    //         read_string("[1 2 3]").unwrap(),
-    //         EDN::Vector(vec![
-    //             EDN::Integer(BigInt::from(1)),
-    //             EDN::Integer(BigInt::from(2)),
-    //             EDN::Integer(BigInt::from(3)),
-    //         ])
-    //     );
+    #[test]
+    fn test_vector_parsing() {
+        assert_eq!(
+            read_string("[1 2 3]").unwrap(),
+            EDN::Vector(vec![
+                EDN::Integer(BigInt::from(1)),
+                EDN::Integer(BigInt::from(2)),
+                EDN::Integer(BigInt::from(3)),
+            ])
+        );
+    }
 
-    //     // Test for Map
-    //     let mut expected_map = HashMap::new();
-    //     expected_map.insert(
-    //         EDN::Keyword(":key".to_string()),
-    //         EDN::String("value".to_string()),
-    //     );
-    //     assert_eq!(
-    //         read_string("{:key \"value\"}").unwrap(),
-    //         EDN::Map(expected_map)
-    //     );
-    // }
+    #[test]
+    fn test_map_parsing() {
+        // Test for Map
+        let mut expected_map = HashMap::new();
+        expected_map.insert(
+            EDN::Keyword(":key".to_string()),
+            EDN::String("value".to_string()),
+        );
+        assert_eq!(
+            read_string("{:key \"value\"}").unwrap(),
+            EDN::Map(expected_map)
+        );
+    }
 
-    // #[test]
-    // fn test_set_parsing() {
-    //     let input = "#{1 (2 [3 4] 5)}";
+    #[test]
+    fn test_set_parsing() {
+        let input = "#{1 (2 [3 4] 5)}";
 
-    //     let result = read_string(input);
-    //     assert!(result.is_ok());
+        let result = read_string(input);
+        assert!(result.is_ok());
 
-    //     if let Ok(EDN::Set(set)) = result {
-    //         assert_eq!(set.len(), 2);
+        if let Ok(EDN::Set(set)) = result {
+            assert_eq!(set.len(), 2);
 
-    //         let mut inner_vec = Vec::new();
-    //         inner_vec.push(EDN::Integer(3.into()));
-    //         inner_vec.push(EDN::Integer(4.into()));
+            let mut inner_vec = Vec::new();
+            inner_vec.push(EDN::Integer(3.into()));
+            inner_vec.push(EDN::Integer(4.into()));
 
-    //         let mut inner_list = Vec::new();
-    //         inner_list.push(EDN::Integer(2.into()));
-    //         inner_list.push(EDN::Vector(inner_vec));
-    //         inner_list.push(EDN::Integer(5.into()));
+            let mut inner_list = Vec::new();
+            inner_list.push(EDN::Integer(2.into()));
+            inner_list.push(EDN::Vector(inner_vec));
+            inner_list.push(EDN::Integer(5.into()));
 
-    //         let mut hset = HashSet::new();
-    //         hset.insert(EDN::Integer(1.into()));
-    //         hset.insert(EDN::List(inner_list));
+            let mut hset = HashSet::new();
+            hset.insert(EDN::Integer(1.into()));
+            hset.insert(EDN::List(inner_list));
 
-    //         assert_eq!(hset, set);
-    //     } else {
-    //         panic!("Expected Set");
-    //     }
-    // }
+            assert_eq!(hset, set);
+        } else {
+            panic!("Expected Set");
+        }
+    }
 }
