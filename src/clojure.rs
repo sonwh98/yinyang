@@ -459,15 +459,53 @@ fn parse_first_valid_expr(astr: &str) -> Result<EDN, ParseError> {
     parse_all(first)
 }
 
+fn replace_quote_syntax(input: &str) -> String {
+    let re = Regex::new(r"'([^\s\(\)\[\]\{\}]+|\(.*?\)|\[.*?\]|\{.*?\})").unwrap();
+
+    let mut output = input.to_string();
+    while re.is_match(&output) {
+        output = re
+            .replace_all(&output, |caps: &regex::Captures| {
+                let quoted = &caps[1];
+                format!("(quote {})", quoted)
+            })
+            .to_string();
+    }
+
+    output
+}
+
 pub fn read_string(astr: &str) -> Result<EDN, ParseError> {
-    let astr = astr.trim();
+    let astr = &replace_quote_syntax(astr.trim());
     parse_all(astr)
         .or_else(|_| parse_first_valid_expr(astr))
         .or_else(|e| match e {
             ParseError::NestingError(_) => return Err(e),
             ParseError::RegularError(_) => {
-                debug!("blah");
                 return parse_symbol(astr);
             }
         })
+}
+
+pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
+    match ast {
+        EDN::List(list) => {
+            if let Some(EDN::Symbol(s)) = list.first() {
+                match s.as_str() {
+                    "quote" | "'" => {
+                        if list.len() == 2 {
+                            Ok(list[1].clone())
+                        } else {
+                            Err("Incorrect number of arguments for 'quote'".to_string())
+                        }
+                    }
+                    // Add more special forms here
+                    _ => Err(format!("Unknown function: {}", s)),
+                }
+            } else {
+                Err("Expected a function symbol".to_string())
+            }
+        }
+        _ => Ok(ast), // For now, everything else evaluates to itself
+    }
 }
