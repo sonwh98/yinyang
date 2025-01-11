@@ -9,6 +9,7 @@ use std::io::{self, Write};
 use std::ops::Add;
 use std::str::Chars;
 use std::str::FromStr;
+use yinyang::clojure::eval;
 use yinyang::clojure::read_string;
 use yinyang::clojure::EDN;
 
@@ -120,5 +121,17 @@ mod tests {
         } else {
             panic!("Expected Set");
         }
+    }
+
+    #[test]
+    fn test_special_form_quote() {
+        let mut env = HashMap::new();
+        let ast = read_string("(quote a)").unwrap();
+        let a = eval(ast, &mut env).unwrap();
+        assert_eq!(EDN::Symbol("a".to_string()), a);
+
+        let ast2 = read_string("'a").unwrap();
+        let a2 = eval(ast2, &mut env).unwrap();
+        assert_eq!(EDN::Symbol("a".to_string()), a2);
     }
 }
