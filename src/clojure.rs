@@ -492,12 +492,19 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
         EDN::List(list) => {
             if let Some(EDN::Symbol(s)) = list.first() {
                 match s.as_str() {
-                    "quote" | "'" => {
+                    "quote" => {
                         if list.len() == 2 {
                             Ok(list[1].clone())
                         } else {
                             Err("Incorrect number of arguments for 'quote'".to_string())
                         }
+                    }
+                    "do" => {
+                        let mut result = EDN::Nil;
+                        for expr in list.iter().skip(1) {
+                            result = eval(expr.clone(), env)?;
+                        }
+                        Ok(result)
                     }
                     // Add more special forms here
                     _ => Err(format!("Unknown function: {}", s)),

@@ -134,4 +134,12 @@ mod tests {
         let a2 = eval(ast2, &mut env).unwrap();
         assert_eq!(EDN::Symbol("a".to_string()), a2);
     }
+
+    #[test]
+    fn test_special_form_do() {
+        let mut env = HashMap::new();
+        let ast = read_string("(do 1 2 3)").unwrap();
+        let result = eval(ast, &mut env).unwrap();
+        assert_eq!(EDN::Integer(BigInt::from(3)), result);
+    }
 }
