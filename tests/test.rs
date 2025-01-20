@@ -142,4 +142,12 @@ mod tests {
         let result = eval(ast, &mut env).unwrap();
         assert_eq!(EDN::Integer(BigInt::from(3)), result);
     }
+
+    #[test]
+    fn test_special_form_if() {
+        let mut env = HashMap::new();
+        let ast = read_string("(if true 1 2)").unwrap();
+        let result = eval(ast, &mut env).unwrap();
+        assert_eq!(EDN::Integer(BigInt::from(1)), result);
+    }
 }
