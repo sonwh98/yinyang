@@ -487,6 +487,14 @@ pub fn read_string(astr: &str) -> Result<EDN, ParseError> {
         })
 }
 
+fn is_truthy(value: &EDN) -> bool {
+    match value {
+        EDN::Nil => false,
+        EDN::Bool(b) => *b,
+        _ => true,
+    }
+}
+
 pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
     match ast {
         EDN::List(list) => {
@@ -506,6 +514,22 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
                         }
                         Ok(result)
                     }
+                    "if" => {
+                        let condition = eval(list[1].clone(), env)?;
+
+                        if is_truthy(&condition) {
+                            let then_branch = list[2].clone();
+                            eval(then_branch, env)
+                        } else {
+                            let else_branch = list[3].clone();
+                            if list.len() == 4 {
+                                eval(else_branch, env)
+                            } else {
+                                Ok(EDN::Nil)
+                            }
+                        }
+                    }
+
                     // Add more special forms here
                     _ => Err(format!("Unknown function: {}", s)),
                 }
