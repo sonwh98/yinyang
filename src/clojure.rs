@@ -196,6 +196,46 @@ impl fmt::Display for EDN {
     }
 }
 
+pub enum Value {
+    EDN(EDN),
+    Var { ns: String, name: String },
+    // Future additions:
+    // Function(Fn),
+    // Atom(AtomRef),
+    // Class(Class),
+    // etc.
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // EDN values compare using EDN's PartialEq
+            (Value::EDN(e1), Value::EDN(e2)) => e1 == e2,
+
+            // Vars compare by namespace and name
+            (
+                Value::Var {
+                    ns: ns1,
+                    name: name1,
+                },
+                Value::Var {
+                    ns: ns2,
+                    name: name2,
+                },
+            ) => ns1 == ns2 && name1 == name2,
+
+            // Different variants are never equal
+            _ => false,
+        }
+    }
+}
+
+impl From<EDN> for Value {
+    fn from(edn: EDN) -> Self {
+        Value::EDN(edn)
+    }
+}
+
 fn parse_collection_helper(
     astr_iter: &mut Chars,
     mut nesting_level: i8,
@@ -390,8 +430,6 @@ fn parse_string(astr: &str) -> Result<EDN, ParseError> {
 }
 
 pub fn parse_symbol(astr: &str) -> Result<EDN, ParseError> {
-    // Skip reserved names
-
     if matches!(astr, "nil" | "true" | "false") {
         return Err(ParseError::RegularError(format!("Reserved name: {}", astr)));
     }
@@ -528,6 +566,17 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
                                 Ok(EDN::Nil)
                             }
                         }
+                    }
+                    "def" => {
+                        let symbol = match &list[1] {
+                            EDN::Symbol(name) => name.clone(),
+                            _ => return Err("First argument to 'def' must be a symbol".to_string()),
+                        };
+
+                        let value = eval(list[2].clone(), env)?;
+
+                        env.insert(symbol, value.clone());
+                        Ok(list[1].clone())
                     }
 
                     // Add more special forms here
