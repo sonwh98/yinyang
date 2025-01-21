@@ -196,6 +196,7 @@ impl fmt::Display for EDN {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Value {
     EDN(EDN),
     Var { ns: String, name: String },
@@ -525,28 +526,28 @@ pub fn read_string(astr: &str) -> Result<EDN, ParseError> {
         })
 }
 
-fn is_truthy(value: &EDN) -> bool {
+fn is_truthy(value: &Value) -> bool {
     match value {
-        EDN::Nil => false,
-        EDN::Bool(b) => *b,
+        Value::EDN(EDN::Nil) => false,
+        Value::EDN(EDN::Bool(false)) => false,
         _ => true,
     }
 }
 
-pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
+pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String> {
     match ast {
         EDN::List(list) => {
             if let Some(EDN::Symbol(s)) = list.first() {
                 match s.as_str() {
                     "quote" => {
                         if list.len() == 2 {
-                            Ok(list[1].clone())
+                            Ok(Value::EDN(list[1].clone()))
                         } else {
                             Err("Incorrect number of arguments for 'quote'".to_string())
                         }
                     }
                     "do" => {
-                        let mut result = EDN::Nil;
+                        let mut result = Value::EDN(EDN::Nil);
                         for expr in list.iter().skip(1) {
                             result = eval(expr.clone(), env)?;
                         }
@@ -558,13 +559,11 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
                         if is_truthy(&condition) {
                             let then_branch = list[2].clone();
                             eval(then_branch, env)
-                        } else {
+                        } else if list.len() == 4 {
                             let else_branch = list[3].clone();
-                            if list.len() == 4 {
-                                eval(else_branch, env)
-                            } else {
-                                Ok(EDN::Nil)
-                            }
+                            eval(else_branch, env)
+                        } else {
+                            Ok(Value::EDN(EDN::Nil))
                         }
                     }
                     "def" => {
@@ -574,11 +573,13 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
                         };
 
                         let value = eval(list[2].clone(), env)?;
+                        env.insert(symbol.clone(), value);
 
-                        env.insert(symbol, value.clone());
-                        Ok(list[1].clone())
+                        Ok(Value::Var {
+                            ns: "user".to_string(),
+                            name: symbol,
+                        })
                     }
-
                     // Add more special forms here
                     _ => Err(format!("Unknown function: {}", s)),
                 }
@@ -586,6 +587,10 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, EDN>) -> Result<EDN, String> {
                 Err("Expected a function symbol".to_string())
             }
         }
-        _ => Ok(ast), // For now, everything else evaluates to itself
+        EDN::Symbol(name) => env
+            .get(&name)
+            .cloned()
+            .ok_or_else(|| format!("Undefined symbol: {}", name)),
+        _ => Ok(Value::EDN(ast)), // Non-symbols evaluate to themselves as EDN values
     }
 }
