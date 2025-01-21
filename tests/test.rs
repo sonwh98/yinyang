@@ -11,6 +11,7 @@ use std::str::Chars;
 use std::str::FromStr;
 use yinyang::clojure::eval;
 use yinyang::clojure::read_string;
+use yinyang::clojure::Value;
 use yinyang::clojure::EDN;
 
 #[cfg(test)]
@@ -128,11 +129,11 @@ mod tests {
         let mut env = HashMap::new();
         let ast = read_string("(quote a)").unwrap();
         let a = eval(ast, &mut env).unwrap();
-        assert_eq!(EDN::Symbol("a".to_string()), a);
+        assert_eq!(Value::EDN(EDN::Symbol("a".to_string())), a);
 
         let ast2 = read_string("'a").unwrap();
         let a2 = eval(ast2, &mut env).unwrap();
-        assert_eq!(EDN::Symbol("a".to_string()), a2);
+        assert_eq!(Value::EDN(EDN::Symbol("a".to_string())), a2);
     }
 
     #[test]
@@ -140,7 +141,7 @@ mod tests {
         let mut env = HashMap::new();
         let ast = read_string("(do 1 2 3)").unwrap();
         let result = eval(ast, &mut env).unwrap();
-        assert_eq!(EDN::Integer(BigInt::from(3)), result);
+        assert_eq!(Value::EDN(EDN::Integer(BigInt::from(3))), result);
     }
 
     #[test]
@@ -148,6 +149,33 @@ mod tests {
         let mut env = HashMap::new();
         let ast = read_string("(if true 1 2)").unwrap();
         let result = eval(ast, &mut env).unwrap();
-        assert_eq!(EDN::Integer(BigInt::from(1)), result);
+        assert_eq!(Value::EDN(EDN::Integer(BigInt::from(1))), result);
+    }
+
+    #[test]
+    fn test_special_form_def() {
+        let mut env = HashMap::new();
+
+        let def_expr = EDN::List(vec![
+            EDN::Symbol("def".to_string()),
+            EDN::Symbol("pi".to_string()),
+            EDN::Float(BigDecimal::from_str("3.14").unwrap()),
+        ]);
+
+        let result = eval(def_expr, &mut env).unwrap();
+
+        assert!(matches!(result, Value::Var { ns: _, name: _ }));
+
+        if let Value::Var { ns, name } = result {
+            assert_eq!(ns, "user");
+            assert_eq!(name, "pi");
+        }
+
+        assert!(env.contains_key("pi"));
+        if let Some(Value::EDN(EDN::Float(val))) = env.get("pi") {
+            assert_eq!(val, &BigDecimal::from_str("3.14").unwrap());
+        } else {
+            panic!("Expected pi to be bound to float 3.14");
+        }
     }
 }
