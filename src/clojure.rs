@@ -204,6 +204,11 @@ pub enum Value {
         name: String,
         value: Box<Value>,
     },
+    Function {
+        params: Vec<String>,
+        body: EDN,
+        closure: HashMap<String, Value>, // Environment when the function is defined
+    },
     // Future additions:
     // Function(Fn),
     // Atom(AtomRef),
@@ -540,62 +545,95 @@ fn is_truthy(value: &Value) -> bool {
     }
 }
 
+fn eval_special_form(
+    form: &str,
+    args: &[EDN],
+    env: &mut HashMap<String, Value>,
+) -> Result<Value, String> {
+    match form {
+        "quote" => {
+            if args.len() == 1 {
+                Ok(Value::EDN(args[0].clone()))
+            } else {
+                Err("Incorrect number of arguments for 'quote'".to_string())
+            }
+        }
+        "do" => {
+            let mut result = Value::EDN(EDN::Nil);
+            for expr in args {
+                result = eval(expr.clone(), env)?;
+            }
+            Ok(result)
+        }
+        "if" => {
+            if args.len() < 2 || args.len() > 3 {
+                return Err("'if' requires 2 or 3 arguments".to_string());
+            }
+
+            let condition = eval(args[0].clone(), env)?;
+
+            if is_truthy(&condition) {
+                eval(args[1].clone(), env)
+            } else if args.len() == 3 {
+                eval(args[2].clone(), env)
+            } else {
+                Ok(Value::EDN(EDN::Nil))
+            }
+        }
+        "def" => {
+            if args.len() != 2 {
+                return Err("'def' requires exactly 2 arguments".to_string());
+            }
+
+            let symbol = match &args[0] {
+                EDN::Symbol(name) => name.clone(),
+                _ => return Err("First argument to 'def' must be a symbol".to_string()),
+            };
+
+            let value = eval(args[1].clone(), env)?;
+            env.insert(symbol.clone(), value.clone());
+
+            Ok(Value::Var {
+                ns: "user".to_string(),
+                name: symbol,
+                value: Box::new(value),
+            })
+        }
+        "fn" => {
+            if args.len() != 2 {
+                return Err("'fn' requires exactly 2 arguments".to_string());
+            }
+
+            let params = match &args[0] {
+                EDN::Vector(param_list) => param_list
+                    .iter()
+                    .map(|param| match param {
+                        EDN::Symbol(name) => Ok(name.clone()),
+                        _ => Err("Parameters must be symbols".to_string()),
+                    })
+                    .collect::<Result<Vec<String>, String>>()?,
+                _ => return Err("First argument to 'fn' must be a vector".to_string()),
+            };
+
+            let body = args[1].clone();
+            let closure = env.clone();
+
+            Ok(Value::Function {
+                params,
+                body,
+                closure,
+            })
+        }
+        _ => Err(format!("Unknown special form: {}", form)),
+    }
+}
+
 pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String> {
     match ast {
         EDN::List(list) => {
             if let Some(EDN::Symbol(s)) = list.first() {
-                match s.as_str() {
-                    "quote" => {
-                        if list.len() == 2 {
-                            Ok(Value::EDN(list[1].clone()))
-                        } else {
-                            Err("Incorrect number of arguments for 'quote'".to_string())
-                        }
-                    }
-                    "do" => {
-                        let mut result = Value::EDN(EDN::Nil);
-                        for expr in list.iter().skip(1) {
-                            result = eval(expr.clone(), env)?;
-                        }
-                        Ok(result)
-                    }
-                    "if" => {
-                        let condition = eval(list[1].clone(), env)?;
-
-                        if is_truthy(&condition) {
-                            let then_branch = list[2].clone();
-                            eval(then_branch, env)
-                        } else if list.len() == 4 {
-                            let else_branch = list[3].clone();
-                            eval(else_branch, env)
-                        } else {
-                            Ok(Value::EDN(EDN::Nil))
-                        }
-                    }
-                    "def" => {
-                        let symbol = match &list[1] {
-                            EDN::Symbol(name) => name.clone(),
-                            _ => return Err("First argument to 'def' must be a symbol".to_string()),
-                        };
-
-                        let value = eval(list[2].clone(), env)?;
-                        env.insert(symbol.clone(), value.clone());
-
-                        let var = Value::Var {
-                            ns: "user".to_string(),
-                            name: symbol.clone(),
-                            value: Box::new(value.clone()),
-                        };
-
-                        Ok(Value::Var {
-                            ns: "user".to_string(),
-                            name: symbol,
-                            value: Box::new(value.clone()),
-                        })
-                    }
-                    // Add more special forms here
-                    _ => Err(format!("Unknown function: {}", s)),
-                }
+                let args = &list[1..];
+                eval_special_form(&s, args, env)
             } else {
                 Err("Expected a function symbol".to_string())
             }
