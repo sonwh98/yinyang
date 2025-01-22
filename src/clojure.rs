@@ -199,7 +199,11 @@ impl fmt::Display for EDN {
 #[derive(Debug, Clone)]
 pub enum Value {
     EDN(EDN),
-    Var { ns: String, name: String },
+    Var {
+        ns: String,
+        name: String,
+        value: Box<Value>,
+    },
     // Future additions:
     // Function(Fn),
     // Atom(AtomRef),
@@ -218,12 +222,14 @@ impl PartialEq for Value {
                 Value::Var {
                     ns: ns1,
                     name: name1,
+                    value: value1,
                 },
                 Value::Var {
                     ns: ns2,
                     name: name2,
+                    value: value2,
                 },
-            ) => ns1 == ns2 && name1 == name2,
+            ) => ns1 == ns2 && name1 == name2 && value1 == value2,
 
             // Different variants are never equal
             _ => false,
@@ -573,11 +579,18 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String>
                         };
 
                         let value = eval(list[2].clone(), env)?;
-                        env.insert(symbol.clone(), value);
+                        env.insert(symbol.clone(), value.clone());
+
+                        let var = Value::Var {
+                            ns: "user".to_string(),
+                            name: symbol.clone(),
+                            value: Box::new(value.clone()),
+                        };
 
                         Ok(Value::Var {
                             ns: "user".to_string(),
                             name: symbol,
+                            value: Box::new(value.clone()),
                         })
                     }
                     // Add more special forms here

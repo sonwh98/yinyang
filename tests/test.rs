@@ -162,20 +162,37 @@ mod tests {
             EDN::Float(BigDecimal::from_str("3.14").unwrap()),
         ]);
 
-        let result = eval(def_expr, &mut env).unwrap();
+        let a_var = eval(def_expr, &mut env).unwrap();
 
-        assert!(matches!(result, Value::Var { ns: _, name: _ }));
+        assert!(matches!(
+            a_var,
+            Value::Var {
+                ns: _,
+                name: _,
+                value: _
+            }
+        ));
 
-        if let Value::Var { ns, name } = result {
+        if let Value::Var {
+            ref ns,
+            ref name,
+            ref value,
+        } = a_var
+        {
             assert_eq!(ns, "user");
             assert_eq!(name, "pi");
-        }
+            if let Value::EDN(ref edn) = **value {
+                if let EDN::Float(pi) = edn {
+                    assert_eq!(*pi, BigDecimal::from_str("3.14").unwrap());
+                }
+            }
 
-        assert!(env.contains_key("pi"));
-        if let Some(Value::EDN(EDN::Float(val))) = env.get("pi") {
-            assert_eq!(val, &BigDecimal::from_str("3.14").unwrap());
-        } else {
-            panic!("Expected pi to be bound to float 3.14");
+            assert!(env.contains_key("pi"));
+            if let Some(Value::EDN(EDN::Float(val))) = env.get("pi") {
+                assert_eq!(val, &BigDecimal::from_str("3.14").unwrap());
+            } else {
+                panic!("Expected pi to be bound to float 3.14");
+            }
         }
     }
 }
