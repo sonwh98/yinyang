@@ -545,103 +545,125 @@ fn is_truthy(value: &Value) -> bool {
     }
 }
 
-fn eval_special_form(
-    form: &str,
-    args: &[EDN],
-    env: &mut HashMap<String, Value>,
-) -> Result<Value, String> {
-    match form {
-        "quote" => {
-            if args.len() == 1 {
-                Ok(Value::EDN(args[0].clone()))
-            } else {
-                Err("Incorrect number of arguments for 'quote'".to_string())
-            }
-        }
-        "do" => {
-            let mut result = Value::EDN(EDN::Nil);
-            for expr in args {
-                result = eval(expr.clone(), env)?;
-            }
-            Ok(result)
-        }
-        "if" => {
-            if args.len() < 2 || args.len() > 3 {
-                return Err("'if' requires 2 or 3 arguments".to_string());
-            }
-
-            let condition = eval(args[0].clone(), env)?;
-
-            if is_truthy(&condition) {
-                eval(args[1].clone(), env)
-            } else if args.len() == 3 {
-                eval(args[2].clone(), env)
-            } else {
-                Ok(Value::EDN(EDN::Nil))
-            }
-        }
-        "def" => {
-            if args.len() != 2 {
-                return Err("'def' requires exactly 2 arguments".to_string());
-            }
-
-            let symbol = match &args[0] {
-                EDN::Symbol(name) => name.clone(),
-                _ => return Err("First argument to 'def' must be a symbol".to_string()),
-            };
-
-            let value = eval(args[1].clone(), env)?;
-            env.insert(symbol.clone(), value.clone());
-
-            Ok(Value::Var {
-                ns: "user".to_string(),
-                name: symbol,
-                value: Box::new(value),
-            })
-        }
-        "fn" => {
-            if args.len() != 2 {
-                return Err("'fn' requires exactly 2 arguments".to_string());
-            }
-
-            let params = match &args[0] {
-                EDN::Vector(param_list) => param_list
-                    .iter()
-                    .map(|param| match param {
-                        EDN::Symbol(name) => Ok(name.clone()),
-                        _ => Err("Parameters must be symbols".to_string()),
-                    })
-                    .collect::<Result<Vec<String>, String>>()?,
-                _ => return Err("First argument to 'fn' must be a vector".to_string()),
-            };
-
-            let body = args[1].clone();
-            let closure = env.clone();
-
-            Ok(Value::Function {
-                params,
-                body,
-                closure,
-            })
-        }
-        _ => Err(format!("Unknown special form: {}", form)),
-    }
-}
-
 pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String> {
     match ast {
         EDN::List(list) => {
-            if let Some(EDN::Symbol(s)) = list.first() {
-                let args = &list[1..];
-                eval_special_form(&s, args, env)
-            } else {
-                Err("Expected a function symbol".to_string())
-            }
+            list.first()
+                .ok_or("Empty list".to_string())
+                .and_then(|first| match first {
+                    EDN::Symbol(s) => eval_special_form(&s, &list[1..], env),
+                    _ => Err("Expected a function symbol".to_string()),
+                })
         }
         EDN::Symbol(name) => env
             .get(&name)
             .cloned()
             .ok_or_else(|| format!("Undefined symbol: {}", name)),
-        _ => Ok(Value::EDN(ast)), // Non-symbols evaluate to themselves as EDN values
+        _ => Ok(Value::EDN(ast)),
     }
+}
+
+fn eval_special_form(
+    form: &str,
+    args: &[EDN],
+    env: &mut HashMap<String, Value>,
+) -> Result<Value, String> {
+    eval_quote(form, args)
+        .or_else(|_| eval_do(form, args, env))
+        .or_else(|_| eval_if(form, args, env))
+        .or_else(|_| eval_def(form, args, env))
+        .or_else(|_| eval_fn(form, args, env))
+        .or_else(|_| Err(format!("Unknown special form: {}", form)))
+}
+
+fn eval_quote(form: &str, args: &[EDN]) -> Result<Value, String> {
+    if form != "quote" {
+        return Err("Not a quote form".to_string());
+    }
+
+    if args.len() == 1 {
+        Ok(Value::EDN(args[0].clone()))
+    } else {
+        Err("Incorrect number of arguments for 'quote'".to_string())
+    }
+}
+
+fn eval_do(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+    if form != "do" {
+        return Err("Not a do form".to_string());
+    }
+
+    args.iter()
+        .try_fold(Value::EDN(EDN::Nil), |_, expr| eval(expr.clone(), env))
+}
+
+fn eval_if(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+    if form != "if" {
+        return Err("Not an if form".to_string());
+    }
+
+    if args.len() < 2 || args.len() > 3 {
+        return Err("'if' requires 2 or 3 arguments".to_string());
+    }
+
+    eval(args[0].clone(), env).and_then(|condition| {
+        if is_truthy(&condition) {
+            eval(args[1].clone(), env)
+        } else if args.len() == 3 {
+            eval(args[2].clone(), env)
+        } else {
+            Ok(Value::EDN(EDN::Nil))
+        }
+    })
+}
+
+fn eval_def(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+    if form != "def" {
+        return Err("Not a def form".to_string());
+    }
+
+    if args.len() != 2 {
+        return Err("'def' requires exactly 2 arguments".to_string());
+    }
+
+    let symbol = match &args[0] {
+        EDN::Symbol(name) => Ok(name.clone()),
+        _ => Err("First argument to 'def' must be a symbol".to_string()),
+    }?;
+
+    let value = eval(args[1].clone(), env)?;
+    env.insert(symbol.clone(), value.clone());
+
+    Ok(Value::Var {
+        ns: "user".to_string(),
+        name: symbol,
+        value: Box::new(value),
+    })
+}
+
+fn eval_fn(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+    if form != "fn" {
+        return Err("Not a fn form".to_string());
+    }
+
+    if args.len() != 2 {
+        return Err("'fn' requires exactly 2 arguments".to_string());
+    }
+
+    let params = match &args[0] {
+        EDN::Vector(param_list) => param_list
+            .iter()
+            .map(|param| match param {
+                EDN::Symbol(name) => Ok(name.clone()),
+                _ => Err("Parameters must be symbols".to_string()),
+            })
+            .collect::<Result<Vec<String>, String>>()?,
+        _ => return Err("First argument to 'fn' must be a vector".to_string()),
+    };
+
+    Ok(Value::Function {
+        params,
+        body: args[1].clone(),
+        closure: env.clone(),
+    })
 }
