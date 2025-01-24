@@ -551,7 +551,8 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String>
             list.first()
                 .ok_or("Empty list".to_string())
                 .and_then(|first| match first {
-                    EDN::Symbol(s) => eval_special_form(&s, &list[1..], env),
+                    EDN::Symbol(s) => eval_special_form(&s, &list[1..], env)
+                        .or_else(|_| eval_function_call(&list, env)),
                     _ => Err("Expected a function symbol".to_string()),
                 })
         }
@@ -666,4 +667,40 @@ fn eval_fn(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result
         body: args[1].clone(),
         closure: env.clone(),
     })
+}
+
+fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+    // Evaluate first element to get the function
+    let func = eval(list[0].clone(), env)?;
+
+    match func {
+        Value::Function {
+            params,
+            body,
+            closure: closure_env,
+        } => {
+            // Evaluate all arguments
+            let args: Result<Vec<Value>, String> =
+                list[1..].iter().map(|arg| eval(arg.clone(), env)).collect();
+            let args = args?;
+
+            if args.len() != params.len() {
+                return Err(format!(
+                    "Expected {} args, got {}",
+                    params.len(),
+                    args.len()
+                ));
+            }
+
+            // Create new env with params bound to args
+            let mut new_env = closure_env;
+            for (param, arg) in params.iter().zip(args) {
+                new_env.insert(param.clone(), arg);
+            }
+
+            // Evaluate function body in new env
+            eval(body, &mut new_env)
+        }
+        _ => Err("First element is not a function".to_string()),
+    }
 }
