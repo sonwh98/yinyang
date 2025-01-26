@@ -205,7 +205,7 @@ pub enum Value {
         value: Box<Value>,
     },
     Function {
-        params: Vec<String>,
+        params: Vec<Value>,
         body: EDN,
         closure: HashMap<String, Value>, // Environment when the function is defined
     },
@@ -655,10 +655,10 @@ fn eval_fn(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result
         EDN::Vector(param_list) => param_list
             .iter()
             .map(|param| match param {
-                EDN::Symbol(name) => Ok(name.clone()),
+                EDN::Symbol(name) => Ok(Value::EDN(EDN::Symbol(name.clone()))),
                 _ => Err("Parameters must be symbols".to_string()),
             })
-            .collect::<Result<Vec<String>, String>>()?,
+            .collect::<Result<Vec<Value>, String>>()?,
         _ => return Err("First argument to 'fn' must be a vector".to_string()),
     };
 
@@ -695,7 +695,11 @@ fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<
             // Create new env with params bound to args
             let mut new_env = closure_env;
             for (param, arg) in params.iter().zip(args) {
-                new_env.insert(param.clone(), arg);
+                if let Value::EDN(EDN::Symbol(param_name)) = param {
+                    new_env.insert(param_name.clone(), arg);
+                } else {
+                    return Err("Function parameters must be symbols".to_string());
+                }
             }
 
             // Evaluate function body in new env
