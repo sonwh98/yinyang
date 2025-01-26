@@ -4,6 +4,7 @@ use num_bigint::BigInt;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::str::Chars;
 use std::str::FromStr;
@@ -197,6 +198,49 @@ impl fmt::Display for EDN {
 }
 
 #[derive(Debug, Clone)]
+enum IFn {
+    Lambda {
+        params: Vec<Value>,
+        body: EDN,
+        closure: HashMap<String, Value>,
+    },
+    Native(fn(Vec<Value>) -> Result<Value, String>),
+}
+
+impl IFn {
+    fn call(&self, args: Vec<Value>) -> Result<Value, String> {
+        match self {
+            IFn::Lambda {
+                params,
+                body,
+                closure,
+            } => {
+                if args.len() != params.len() {
+                    return Err(format!(
+                        "Expected {} args, got {}",
+                        params.len(),
+                        args.len()
+                    ));
+                }
+
+                let mut new_env = closure.clone();
+                for (param, arg) in params.iter().zip(args.iter()) {
+                    match param {
+                        Value::EDN(EDN::Symbol(name)) => {
+                            new_env.insert(name.clone(), arg.clone());
+                        }
+                        _ => return Err("Parameter must be a symbol".to_string()),
+                    }
+                }
+
+                eval(body.clone(), &mut new_env)
+            }
+            IFn::Native(f) => f(args),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Value {
     EDN(EDN),
     Var {
@@ -204,13 +248,8 @@ pub enum Value {
         name: String,
         value: Box<Value>,
     },
-    Function {
-        params: Vec<Value>,
-        body: EDN,
-        closure: HashMap<String, Value>, // Environment when the function is defined
-    },
+    Function(IFn),
     // Future additions:
-    // Function(Fn),
     // Atom(AtomRef),
     // Class(Class),
     // etc.
@@ -662,11 +701,11 @@ fn eval_fn(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result
         _ => return Err("First argument to 'fn' must be a vector".to_string()),
     };
 
-    Ok(Value::Function {
+    Ok(Value::Function(IFn::Lambda {
         params,
         body: args[1].clone(),
         closure: env.clone(),
-    })
+    }))
 }
 
 fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
@@ -674,36 +713,13 @@ fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<
     let func = eval(list[0].clone(), env)?;
 
     match func {
-        Value::Function {
-            params,
-            body,
-            closure: closure_env,
-        } => {
+        Value::Function(f) => {
             // Evaluate all arguments
             let args: Result<Vec<Value>, String> =
                 list[1..].iter().map(|arg| eval(arg.clone(), env)).collect();
             let args = args?;
 
-            if args.len() != params.len() {
-                return Err(format!(
-                    "Expected {} args, got {}",
-                    params.len(),
-                    args.len()
-                ));
-            }
-
-            // Create new env with params bound to args
-            let mut new_env = closure_env;
-            for (param, arg) in params.iter().zip(args) {
-                if let Value::EDN(EDN::Symbol(param_name)) = param {
-                    new_env.insert(param_name.clone(), arg);
-                } else {
-                    return Err("Function parameters must be symbols".to_string());
-                }
-            }
-
-            // Evaluate function body in new env
-            eval(body, &mut new_env)
+            f.call(args)
         }
         _ => Err("First element is not a function".to_string()),
     }
