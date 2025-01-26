@@ -195,4 +195,21 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_call_lambda() {
+        let mut env = HashMap::new();
+        let ast = read_string("(def one (fn [] 1))").unwrap();
+        let one_fn = eval(ast, &mut env).unwrap();
+        let call_one = read_string("(one)").unwrap();
+        let r = eval(call_one, &mut env).unwrap();
+	if let Value::EDN(edn) = r {
+	    match edn {
+		EDN::Integer(i) => {
+		    assert_eq!(BigInt::from(1), i);
+		},
+		_ => {}
+	    }
+	}
+    }
 }
