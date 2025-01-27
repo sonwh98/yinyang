@@ -1,3 +1,5 @@
+mod core;
+
 use bigdecimal::BigDecimal;
 use log::debug;
 use num_bigint::BigInt;
@@ -742,33 +744,12 @@ fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<
     }
 }
 
-pub fn add(args: Vec<Value>) -> Result<Value, String> {
-    let mut sum = BigDecimal::from(0);
-    for arg in args {
-        match arg {
-            Value::EDN(EDN::Integer(i)) => {
-                sum += BigDecimal::from(i);
-            }
-            Value::EDN(EDN::Float(f)) => {
-                sum += f;
-            }
-            _ => return Err("Arguments to + must be numbers".to_string()),
-        }
-    }
-    Ok(Value::EDN(EDN::Float(sum)))
-}
-pub fn println_fn(args: Vec<Value>) -> Result<Value, String> {
-    let strings: Vec<String> = args.iter().map(|arg| format!("{}", arg)).collect();
-    println!("{}", strings.join(" "));
-    Ok(Value::EDN(EDN::Nil))
-}
-
 pub fn repl() {
     let mut env = HashMap::new();
-    register_native_fn(&mut env, "+", add);
-    register_native_fn(&mut env, "prn", println_fn);
-    register_native_fn(&mut env, "print", println_fn);
-    register_native_fn(&mut env, "println", println_fn);
+    register_native_fn(&mut env, "+", core::add);
+    register_native_fn(&mut env, "prn", core::println_fn);
+    register_native_fn(&mut env, "print", core::println_fn);
+    register_native_fn(&mut env, "println", core::println_fn);
 
     loop {
         print!("user=> ");
