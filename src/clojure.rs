@@ -240,6 +240,14 @@ impl IFn {
     }
 }
 
+pub fn register_native_fn(
+    env: &mut HashMap<String, Value>,
+    name: &str,
+    f: fn(Vec<Value>) -> Result<Value, String>,
+)  {
+    env.insert(name.to_string(), Value::Function(IFn::Native(f)));
+}
+
 #[derive(Debug, Clone)]
 pub enum Value {
     EDN(EDN),
