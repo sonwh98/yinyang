@@ -13,6 +13,7 @@ use yinyang::clojure::eval;
 use yinyang::clojure::read_string;
 use yinyang::clojure::Value;
 use yinyang::clojure::EDN;
+use yinyang::clojure::register_native_fn;
 
 #[cfg(test)]
 mod tests {
@@ -210,6 +211,34 @@ mod tests {
                 }
                 _ => {}
             }
+        }
+    }
+
+    #[test]
+    fn test_call_native() {
+        fn add(args: Vec<Value>) -> Result<Value, String> {
+            let mut sum = BigInt::from(0);
+            for arg in args {
+                match arg {
+                    Value::EDN(EDN::Integer(i)) => {
+                        sum += i;
+                    }
+                    _ => return Err("Arguments to + must be numbers".to_string()),
+                }
+            }
+            Ok(Value::EDN(EDN::Integer(sum)))
+        }
+    
+        let mut env = HashMap::new();
+        register_native_fn(&mut env, "+", add);
+    
+        let ast = read_string("(+ 1 2)").unwrap();
+        let result = eval(ast, &mut env).unwrap();
+    
+        if let Value::EDN(EDN::Integer(i)) = result {
+            assert_eq!(BigInt::from(3), i);
+        } else {
+            panic!("Expected result to be integer 2");
         }
     }
 }
