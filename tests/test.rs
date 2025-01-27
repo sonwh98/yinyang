@@ -9,17 +9,14 @@ use std::io::{self, Write};
 use std::ops::Add;
 use std::str::Chars;
 use std::str::FromStr;
-use yinyang::clojure::eval;
-use yinyang::clojure::read_string;
-use yinyang::clojure::Value;
-use yinyang::clojure::EDN;
-use yinyang::clojure::register_native_fn;
+use yinyang::clojure::{eval, read_string, register_native_fn, Value, EDN};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use bigdecimal::BigDecimal;
     use num_bigint::BigInt;
+    use yinyang::clojure::add;
 
     #[test]
     fn test_single_value_parsing() {
@@ -216,29 +213,16 @@ mod tests {
 
     #[test]
     fn test_call_native() {
-        fn add(args: Vec<Value>) -> Result<Value, String> {
-            let mut sum = BigInt::from(0);
-            for arg in args {
-                match arg {
-                    Value::EDN(EDN::Integer(i)) => {
-                        sum += i;
-                    }
-                    _ => return Err("Arguments to + must be numbers".to_string()),
-                }
-            }
-            Ok(Value::EDN(EDN::Integer(sum)))
-        }
-    
         let mut env = HashMap::new();
         register_native_fn(&mut env, "+", add);
-    
+
         let ast = read_string("(+ 1 2)").unwrap();
         let result = eval(ast, &mut env).unwrap();
-    
+
         if let Value::EDN(EDN::Integer(i)) = result {
             assert_eq!(BigInt::from(3), i);
         } else {
-            panic!("Expected result to be integer 2");
+            panic!("Expected result to be integer 3");
         }
     }
 }
