@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
+use std::io::{self, Write};
 use std::str::Chars;
 use std::str::FromStr;
 
@@ -244,7 +245,7 @@ pub fn register_native_fn(
     env: &mut HashMap<String, Value>,
     name: &str,
     f: fn(Vec<Value>) -> Result<Value, String>,
-)  {
+) {
     env.insert(name.to_string(), Value::Function(IFn::Native(f)));
 }
 
@@ -261,6 +262,15 @@ pub enum Value {
     // Atom(AtomRef),
     // Class(Class),
     // etc.
+}
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Value::EDN(edn) => write!(f, "{}", edn),
+            Value::Var { ns, name, value } => write!(f, "#'{}/{}", ns, name),
+            Value::Function(_) => write!(f, "#<function>"),
+        }
+    }
 }
 
 impl PartialEq for Value {
@@ -726,9 +736,59 @@ fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<
             let args: Result<Vec<Value>, String> =
                 list[1..].iter().map(|arg| eval(arg.clone(), env)).collect();
             let args = args?;
-
             f.call(args)
         }
         _ => Err("First element is not a function".to_string()),
+    }
+}
+
+pub fn add(args: Vec<Value>) -> Result<Value, String> {
+    let mut sum = BigDecimal::from(0);
+    for arg in args {
+        match arg {
+            Value::EDN(EDN::Integer(i)) => {
+                sum += BigDecimal::from(i);;
+            }
+	    Value::EDN(EDN::Float(f)) => {
+                sum += f;
+            }
+            _ => return Err("Arguments to + must be numbers".to_string()),
+        }
+    }
+    Ok(Value::EDN(EDN::Float(sum)))
+}
+
+pub fn repl() {
+    let mut env = HashMap::new();
+    register_native_fn(&mut env, "+", add);
+
+    loop {
+        print!("user=> ");
+        if io::stdout().flush().is_err() {
+            eprintln!("Error: Failed to flush stdout");
+            continue;
+        }
+
+        let mut input = String::new();
+        match io::stdin().read_line(&mut input) {
+            Ok(0) => break, // EOF
+            Ok(_) => {
+                if input.trim().is_empty() {
+                    continue;
+                }
+
+                match read_string(&input) {
+                    Ok(ast) => match eval(ast, &mut env) {
+                        Ok(val) => println!("{}", val),
+                        Err(e) => eprintln!("Error: {}", e),
+                    },
+                    Err(e) => eprintln!("Parse error: {:?}",e),
+                }
+            }
+            Err(e) => {
+                eprintln!("Error reading input: {}", e);
+                continue;
+            }
+        }
     }
 }
