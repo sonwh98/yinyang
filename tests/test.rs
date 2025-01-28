@@ -229,15 +229,23 @@ mod tests {
     #[test]
     fn test_call_native() {
         let mut env = HashMap::new();
-        register_native_fn(&mut env, "+", add);
 
-        let ast = read_string("(+ 1 2)").unwrap();
+        let echo: fn(Vec<Value>) -> Result<Value, String> = |args: Vec<Value>| {
+            if args.len() != 1 {
+                return Err("Expected exactly one argument".to_string());
+            }
+            Ok(args[0].clone())
+        };
+
+        register_native_fn(&mut env, "echo", echo);
+
+        let ast = read_string("(echo 123)").unwrap();
         let result = eval(ast, &mut env).unwrap();
 
         if let Value::EDN(EDN::Integer(i)) = result {
-            assert_eq!(BigInt::from(3), i);
+            assert_eq!(BigInt::from(123), i);
         } else {
-            panic!("Expected result to be integer 3");
+            panic!("Expected result to be integer 123");
         }
     }
 }
