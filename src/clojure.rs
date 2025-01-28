@@ -632,6 +632,7 @@ fn eval_special_form(
         .or_else(|_| eval_do(form, args, env))
         .or_else(|_| eval_if(form, args, env))
         .or_else(|_| eval_def(form, args, env))
+        .or_else(|_| eval_let(form, args, env))
         .or_else(|_| eval_fn(form, args, env))
         .or_else(|_| Err(format!("Unknown special form: {}", form)))
 }
@@ -699,6 +700,41 @@ fn eval_def(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Resul
         name: symbol,
         value: Box::new(value),
     })
+}
+
+fn eval_let(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+    if form != "let" {
+        return Err("Not a let form".to_string());
+    }
+
+    if args.len() != 2 {
+        return Err("'let' requires exactly 2 arguments".to_string());
+    }
+
+    let bindings = match &args[0] {
+        EDN::Vector(bindings) => bindings,
+        _ => return Err("First argument to 'let' must be a vector".to_string()),
+    };
+
+    if bindings.len() % 2 != 0 {
+        return Err("Binding vector requires an even number of forms".to_string());
+    }
+
+    let mut new_env = env.clone();
+
+    // Process bindings in pairs
+    for chunk in bindings.chunks(2) {
+        let sym = match &chunk[0] {
+            EDN::Symbol(name) => name.clone(),
+            _ => return Err("Binding target must be a symbol".to_string()),
+        };
+
+        let val = eval(chunk[1].clone(), &mut new_env)?;
+        new_env.insert(sym, val);
+    }
+
+    // Evaluate body in new environment
+    eval(args[1].clone(), &mut new_env)
 }
 
 fn eval_fn(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
