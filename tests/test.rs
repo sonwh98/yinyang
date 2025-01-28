@@ -16,7 +16,6 @@ mod tests {
     use super::*;
     use bigdecimal::BigDecimal;
     use num_bigint::BigInt;
-    use yinyang::clojure::add;
 
     #[test]
     fn test_single_value_parsing() {
@@ -192,6 +191,22 @@ mod tests {
                 panic!("Expected pi to be bound to float 3.14");
             }
         }
+    }
+
+    #[test]
+    fn test_special_form_let() {
+        let mut env = HashMap::new();
+
+        let let_expr = read_string("(let [pi 3.14] pi)").unwrap();
+        let result = eval(let_expr, &mut env).unwrap();
+
+        assert_eq!(
+            result,
+            Value::EDN(EDN::Float(BigDecimal::from_str("3.14").unwrap()))
+        );
+
+        // Verify binding was local
+        assert!(env.get("pi").is_none());
     }
 
     #[test]
