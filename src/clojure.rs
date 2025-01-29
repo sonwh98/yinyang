@@ -596,6 +596,20 @@ pub fn read_string(astr: &str) -> Result<EDN, ParseError> {
         })
 }
 
+fn read_string_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err("read-string requires exactly 1 argument".to_string());
+    }
+
+    let s = match &args[0] {
+        Value::EDN(EDN::String(s)) => s,
+        _ => return Err("read-string argument must be a string".to_string()),
+    };
+
+    let v = read_string(s).unwrap();
+    Ok(Value::EDN(v))
+}
+
 fn is_truthy(value: &Value) -> bool {
     match value {
         Value::EDN(EDN::Nil) => false,
@@ -786,6 +800,7 @@ pub fn repl() {
     register_native_fn(&mut env, "prn", core::println_fn);
     register_native_fn(&mut env, "print", core::println_fn);
     register_native_fn(&mut env, "println", core::println_fn);
+    register_native_fn(&mut env, "read-string", read_string_fn);
 
     loop {
         print!("user=> ");
