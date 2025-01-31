@@ -324,42 +324,34 @@ fn parse_collection_helper(
         }
         //println!("ch={:?} buffer={:?}", ch, buffer);
         match buffer.as_str() {
-            "(" => {
-                handle_nested_collection(
-                    &EDN::List(Vec::new()),
-                    astr_iter,
-                    &mut nesting_level,
-                    items,
-                    &mut buffer,
-                )?;
-            }
-            "[" => {
-                handle_nested_collection(
-                    &EDN::Vector(Vec::new()),
-                    astr_iter,
-                    &mut nesting_level,
-                    items,
-                    &mut buffer,
-                )?;
-            }
-            "#{" => {
-                handle_nested_collection(
-                    &EDN::Set(HashSet::new()),
-                    astr_iter,
-                    &mut nesting_level,
-                    items,
-                    &mut buffer,
-                )?;
-            }
-            "{" => {
-                handle_nested_collection(
-                    &EDN::Map(HashMap::new()),
-                    astr_iter,
-                    &mut nesting_level,
-                    items,
-                    &mut buffer,
-                )?;
-            }
+            "(" => handle_nested_collection(
+                &EDN::List(Vec::new()),
+                astr_iter,
+                &mut nesting_level,
+                items,
+                &mut buffer,
+            ),
+            "[" => handle_nested_collection(
+                &EDN::Vector(Vec::new()),
+                astr_iter,
+                &mut nesting_level,
+                items,
+                &mut buffer,
+            ),
+            "#{" => handle_nested_collection(
+                &EDN::Set(HashSet::new()),
+                astr_iter,
+                &mut nesting_level,
+                items,
+                &mut buffer,
+            ),
+            "{" => handle_nested_collection(
+                &EDN::Map(HashMap::new()),
+                astr_iter,
+                &mut nesting_level,
+                items,
+                &mut buffer,
+            ),
             _ => {
                 if ch == closing_char {
                     nesting_level -= 1;
@@ -390,15 +382,14 @@ fn handle_nested_collection(
     nesting_level: &mut i8,
     items: &mut Vec<EDN>,
     buffer: &mut String,
-) -> Result<(), ParseError> {
+) {
     if *nesting_level > 0 {
-        let nested = parse_collection_helper(astr_iter, 1, &mut Vec::new(), collection_type)?;
+        let nested = parse_collection_helper(astr_iter, 1, &mut Vec::new(), collection_type).unwrap();
         items.push(nested);
     } else {
         *nesting_level += 1;
     }
     buffer.clear();
-    Ok(())
 }
 
 fn parse_buffer(buffer: &mut String, items: &mut Vec<EDN>) {
