@@ -307,6 +307,21 @@ impl From<EDN> for Value {
     }
 }
 
+fn handle_nested_string(astr_iter: &mut Chars, items: &mut Vec<EDN>, buffer: &mut String) {
+    let orig_str: String = astr_iter.clone().collect();
+
+    while let Some(ch) = astr_iter.next() {
+        if ch == '"' {
+            break;
+        } else {
+            buffer.push(ch);
+        }
+    }
+    let val = EDN::String(buffer.to_string());
+    items.push(val);
+    buffer.clear();
+}
+
 fn parse_collection_helper(
     astr_iter: &mut Chars,
     mut nesting_level: i8,
@@ -317,12 +332,18 @@ fn parse_collection_helper(
     let mut buffer = String::new();
     let config = EDN::collection_config(collection_type);
     let closing_char = config.closing.chars().next().unwrap();
+    let mut string_start = false;
 
     while let Some(ch) = astr_iter.next() {
+        if ch == '"' && string_start == false {
+            handle_nested_string(astr_iter, items, &mut buffer);
+            string_start = true;
+        }
+
         if !matches!(ch, ' ' | ',' | ')' | ']' | '}') {
             buffer.push(ch);
         }
-        //println!("ch={:?} buffer={:?}", ch, buffer);
+
         match buffer.as_str() {
             "(" => handle_nested_collection(
                 &EDN::List(Vec::new()),
@@ -384,7 +405,8 @@ fn handle_nested_collection(
     buffer: &mut String,
 ) {
     if *nesting_level > 0 {
-        let nested = parse_collection_helper(astr_iter, 1, &mut Vec::new(), collection_type).unwrap();
+        let nested =
+            parse_collection_helper(astr_iter, 1, &mut Vec::new(), collection_type).unwrap();
         items.push(nested);
     } else {
         *nesting_level += 1;
@@ -534,10 +556,10 @@ fn parse_all(astr: &str) -> Result<EDN, ParseError> {
         parse_float,
         parse_keyword,
         parse_string,
+        parse_list,
         parse_map,
         parse_set,
         parse_vector,
-        parse_list,
     ];
 
     for parser in parsers {

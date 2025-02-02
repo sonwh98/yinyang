@@ -7,4 +7,7 @@ use yinyang::clojure::repl;
 fn main() {
     env_logger::init();
     repl();
+
+    // let rs = clojure::read_string("( \"[1]\" )");
+    // println!("rs={:?}", rs);
 }

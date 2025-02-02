@@ -120,7 +120,13 @@ mod tests {
             panic!("Expected Set");
         }
     }
-
+    #[test]
+    fn test_nested_string_in_collection(){
+	let rs = read_string("(\"[1]\")");
+	let v = EDN::List(vec![EDN::String("[1]".to_string())]);
+	assert_eq!(v, rs.unwrap());
+    }
+    
     #[test]
     fn test_special_form_quote() {
         let mut env = HashMap::new();
