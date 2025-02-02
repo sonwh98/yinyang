@@ -201,7 +201,7 @@ impl fmt::Display for EDN {
 }
 
 #[derive(Debug, Clone)]
-enum Callable {
+pub enum Callable {
     Lambda {
         params: Vec<Value>,
         body: EDN,
