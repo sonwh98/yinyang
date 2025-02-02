@@ -201,7 +201,7 @@ impl fmt::Display for EDN {
 }
 
 #[derive(Debug, Clone)]
-enum IFn {
+enum Callable {
     Lambda {
         params: Vec<Value>,
         body: EDN,
@@ -210,10 +210,10 @@ enum IFn {
     Native(fn(Vec<Value>) -> Result<Value, String>),
 }
 
-impl IFn {
+impl Callable {
     fn call(&self, args: Vec<Value>) -> Result<Value, String> {
         match self {
-            IFn::Lambda {
+            Callable::Lambda {
                 params,
                 body,
                 closure,
@@ -238,7 +238,7 @@ impl IFn {
 
                 eval(body.clone(), &mut new_env)
             }
-            IFn::Native(f) => f(args),
+            Callable::Native(f) => f(args),
         }
     }
 }
@@ -248,7 +248,7 @@ pub fn register_native_fn(
     name: &str,
     f: fn(Vec<Value>) -> Result<Value, String>,
 ) {
-    env.insert(name.to_string(), Value::Function(IFn::Native(f)));
+    env.insert(name.to_string(), Value::Function(Callable::Native(f)));
 }
 
 #[derive(Debug, Clone)]
@@ -259,13 +259,15 @@ pub enum Value {
         name: String,
         value: Box<Value>,
     },
-    Function(IFn),
+    Function(Callable),
     // Future additions:
     // Atom(AtomRef),
     // Class(Class),
     // etc.
 }
+
 impl fmt::Display for Value {
+    #[allow(unused_variables)]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::EDN(edn) => write!(f, "{}", edn),
@@ -308,7 +310,7 @@ impl From<EDN> for Value {
 }
 
 fn handle_nested_string(astr_iter: &mut Chars, items: &mut Vec<EDN>, buffer: &mut String) {
-    let orig_str: String = astr_iter.clone().collect();
+    //let orig_str: String = astr_iter.clone().collect();
 
     while let Some(ch) = astr_iter.next() {
         if ch == '"' {
@@ -784,7 +786,7 @@ fn eval_fn(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result
         _ => return Err("First argument to 'fn' must be a vector".to_string()),
     };
 
-    Ok(Value::Function(IFn::Lambda {
+    Ok(Value::Function(Callable::Lambda {
         params,
         body: args[1].clone(),
         closure: env.clone(),
