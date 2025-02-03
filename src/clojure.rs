@@ -571,7 +571,7 @@ fn parse_all(astr: &str) -> Result<EDN, ParseError> {
             Err(ParseError::NestingError(e)) => {
                 return Err(ParseError::NestingError(e));
             }
-            Err(ParseError::RegularError(_)) => continue,
+            Err(ParseError::RegularError(_s)) => continue,
         }
     }
 
