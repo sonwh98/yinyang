@@ -1,13 +1,4 @@
-use bigdecimal::BigDecimal;
-use num_bigint::BigInt;
-use regex::Regex;
-use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::hash::{Hash, Hasher};
-use std::io::{self, Write};
-use std::ops::Add;
-use std::str::Chars;
 use std::str::FromStr;
 use yinyang::clojure::{eval, read_string, register_native_fn, Value, EDN};
 
@@ -216,6 +207,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(unused_variables)]
     fn test_call_lambda() {
         let mut env = HashMap::new();
         let ast = read_string("(def one (fn [] 1))").unwrap();

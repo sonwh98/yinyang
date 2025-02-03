@@ -1,12 +1,10 @@
 mod clojure;
 
-use log::{debug, error, info, trace, warn};
-
-use yinyang::clojure::repl;
+//use log::{debug, error, info, trace, warn};
 
 fn main() {
     env_logger::init();
-    repl();
+    clojure::repl();
 
     // let rs = clojure::read_string("( \"[1]\" )");
     // println!("rs={:?}", rs);
