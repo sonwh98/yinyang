@@ -811,6 +811,18 @@ fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<
 
 pub fn repl() {
     let mut env = HashMap::new();
+    let eval_fn = |args: Vec<Value>| -> Result<Value, String> {
+        if args.len() != 1 {
+            return Err("eval requires exactly 1 argument".to_string());
+        }
+
+        let expr = match &args[0] {
+            Value::EDN(edn) => edn.clone(),
+            _ => return Err("eval argument must be an EDN value".to_string()),
+        };
+        eval(expr, &mut env)
+    };
+
     register_native_fn(&mut env, "+", core::add);
     register_native_fn(&mut env, "prn", core::println_fn);
     register_native_fn(&mut env, "print", core::println_fn);
