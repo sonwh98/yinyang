@@ -200,39 +200,72 @@ impl fmt::Display for EDN {
     }
 }
 
-#[derive(Debug, Clone)]
+// #[derive(Debug, Clone)]
+// pub enum Callable {
+//     Lambda {
+//         params: Vec<Value>,
+//         body: EDN,
+//         closure: HashMap<String, Value>,
+//     },
+//     Native(fn(Vec<Value>) -> Result<Value, String>),
+// }
+
 pub enum Callable {
     Lambda {
         params: Vec<Value>,
         body: EDN,
         closure: HashMap<String, Value>,
     },
-    Native(fn(Vec<Value>) -> Result<Value, String>),
+    Native(Box<dyn Fn(Vec<Value>) -> Result<Value, String> + Send + Sync>),
 }
+
+// impl Callable {
+//     fn call(&self, args: Vec<Value>) -> Result<Value, String> {
+//         match self {
+//             Callable::Lambda {
+//                 params,
+//                 body,
+//                 closure,
+//             } => {
+//                 if args.len() != params.len() {
+//                     return Err(format!(
+//                         "Expected {} args, got {}",
+//                         params.len(),
+//                         args.len()
+//                     ));
+//                 }
+
+//                 let mut new_env = closure.clone();
+//                 for (param, arg) in params.iter().zip(args.iter()) {
+//                     match param {
+//                         Value::EDN(EDN::Symbol(name)) => {
+//                             new_env.insert(name.clone(), arg.clone());
+//                         }
+//                         _ => return Err("Parameter must be a symbol".to_string()),
+//                     }
+//                 }
+
+//                 eval(body.clone(), &mut new_env)
+//             }
+//             Callable::Native(f) => f(args),
+//         }
+//     }
+// }
 
 impl Callable {
     fn call(&self, args: Vec<Value>) -> Result<Value, String> {
         match self {
-            Callable::Lambda {
-                params,
-                body,
-                closure,
-            } => {
+            Callable::Lambda { params, body, closure } => {
                 if args.len() != params.len() {
-                    return Err(format!(
-                        "Expected {} args, got {}",
-                        params.len(),
-                        args.len()
-                    ));
+                    return Err(format!("Expected {} args, got {}", params.len(), args.len()));
                 }
 
                 let mut new_env = closure.clone();
                 for (param, arg) in params.iter().zip(args.iter()) {
-                    match param {
-                        Value::EDN(EDN::Symbol(name)) => {
-                            new_env.insert(name.clone(), arg.clone());
-                        }
-                        _ => return Err("Parameter must be a symbol".to_string()),
+                    if let Value::EDN(EDN::Symbol(name)) = param {
+                        new_env.insert(name.clone(), arg.clone());
+                    } else {
+                        return Err("Parameter must be a symbol".to_string());
                     }
                 }
 
@@ -243,13 +276,36 @@ impl Callable {
     }
 }
 
-pub fn register_native_fn(
-    env: &mut HashMap<String, Value>,
-    name: &str,
-    f: fn(Vec<Value>) -> Result<Value, String>,
-) {
-    env.insert(name.to_string(), Value::Function(Callable::Native(f)));
+impl fmt::Debug for Callable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Callable::Lambda { params, body, closure } => f
+                .debug_struct("Lambda")
+                .field("params", params)
+                .field("body", body)
+                .field("closure", closure)
+                .finish(),
+            Callable::Native(_) => f.write_str("Native Function"),
+        }
+    }
 }
+
+
+// pub fn register_native_fn(
+//     env: &mut HashMap<String, Value>,
+//     name: &str,
+//     f: fn(Vec<Value>) -> Result<Value, String>,
+// ) {
+//     env.insert(name.to_string(), Value::Function(Callable::Native(f)));
+// }
+
+pub fn register_native_fn<F>(env: &mut HashMap<String, Value>, name: &str, f: F)
+where
+    F: Fn(Vec<Value>) -> Result<Value, String> + 'static + Send + Sync,
+{
+    env.insert(name.to_string(), Value::Function(Callable::Native(Box::new(f))));
+}
+
 
 #[derive(Debug, Clone)]
 pub enum Value {
