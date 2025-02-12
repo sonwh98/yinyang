@@ -611,7 +611,7 @@ pub fn read_string(astr: &str) -> Result<EDN, ParseError> {
         })
 }
 
-fn read_string_fn(args: Vec<Value>) -> Result<Value, String> {
+fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err("read-string requires exactly 1 argument".to_string());
     }
@@ -827,7 +827,7 @@ pub fn repl() {
     register_native_fn(&mut env, "prn", core::println_fn);
     register_native_fn(&mut env, "print", core::println_fn);
     register_native_fn(&mut env, "println", core::println_fn);
-    register_native_fn(&mut env, "read-string", read_string_fn);
+    register_native_fn(&mut env, "read-string", read_string_wrapper);
 
     loop {
         print!("user=> ");
