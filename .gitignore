@@ -15,5 +15,5 @@ pom.xml.asc
 *.iml
 *.log
 \#*
-*/*~
+*~
 .DS_Store
