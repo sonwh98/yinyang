@@ -1,4 +1,5 @@
-mod core;
+pub mod core;
+pub mod list;
 
 use bigdecimal::BigDecimal;
 use log::debug;
@@ -26,6 +27,8 @@ pub enum EDN {
     Map(HashMap<EDN, EDN>),
     Set(HashSet<EDN>),
 }
+
+
 
 #[derive(Debug)]
 struct CollectionConfig {
