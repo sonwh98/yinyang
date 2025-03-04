@@ -20,7 +20,7 @@ pub enum EDN {
     String(String),
     Symbol(String),
     Keyword(String),
-    List(Vec<EDN>),
+    List(Box<list::List<EDN>>),
     Vector(Vec<EDN>),
     Map(HashMap<EDN, EDN>),
     Set(HashSet<EDN>),
