@@ -28,7 +28,14 @@ mod tests {
         assert_eq!(list.head(), Some(&3));
         assert_eq!(list.tail().unwrap().head(), Some(&2));
         assert_eq!(list.tail().unwrap().tail().unwrap().head(), Some(&1));
-        assert!(list.tail().unwrap().tail().unwrap().tail().unwrap().is_empty());
+        assert!(list
+            .tail()
+            .unwrap()
+            .tail()
+            .unwrap()
+            .tail()
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

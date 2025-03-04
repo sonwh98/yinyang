@@ -1,12 +1,18 @@
 use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum List<T> where T: Clone {
+pub enum List<T>
+where
+    T: Clone,
+{
     Cons(T, Rc<List<T>>),
     Nil,
 }
 
-impl<T> List<T> where T: Clone {
+impl<T> List<T>
+where
+    T: Clone,
+{
     // Create a new empty list
     pub fn new() -> Self {
         List::Nil

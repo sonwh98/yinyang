@@ -1,3 +1,4 @@
+use crate::immutant::list;
 use bigdecimal::BigDecimal;
 use log::debug;
 use num_bigint::BigInt;
@@ -24,8 +25,6 @@ pub enum EDN {
     Map(HashMap<EDN, EDN>),
     Set(HashSet<EDN>),
 }
-
-
 
 #[derive(Debug)]
 struct CollectionConfig {
