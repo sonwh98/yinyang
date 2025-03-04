@@ -1,4 +1,4 @@
-use yinyang::clojure::list::*;
+use yinyang::immutant::list::List;
 
 #[cfg(test)]
 mod tests {
