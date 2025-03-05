@@ -118,7 +118,7 @@ impl Hash for EDN {
             }
             EDN::List(l) => {
                 state.write_u8(7);
-                for item in l {
+                for item in l.iter() {
                     item.hash(state);
                 }
             }
