@@ -9,7 +9,7 @@ where
     Nil,
 }
 
-impl<T> List<T>
+impl<T:Clone> List<T>
 where
     T: Clone,
 {
