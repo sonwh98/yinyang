@@ -56,4 +56,12 @@ where
             List::Cons(_, tail) => 1 + tail.len(),
         }
     }
+
+    pub fn from_vec(v: Vec<T>) -> Self {
+        let mut list = List::Nil;
+        for item in v.into_iter().rev() {
+            list = List::Cons(item, Rc::new(list));
+        }
+        list
+    }
 }
