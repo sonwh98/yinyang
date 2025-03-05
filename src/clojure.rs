@@ -347,7 +347,7 @@ fn parse_collection_helper(
 
         match buffer.as_str() {
             "(" => handle_nested_collection(
-		&EDN::List(Box::new(list::List::new())),
+                &EDN::List(Box::new(list::List::new())),
                 astr_iter,
                 &mut nesting_level,
                 items,
@@ -635,11 +635,12 @@ fn is_truthy(value: &Value) -> bool {
 pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String> {
     match ast {
         EDN::List(list) => {
-            list.first()
+            let l = *list;
+            l.first()
                 .ok_or("Empty list".to_string())
                 .and_then(|first| match first {
-                    EDN::Symbol(s) => eval_special_form(&s, &list[1..], env)
-                        .or_else(|_| eval_function_call(&list, env)),
+                    EDN::Symbol(s) => eval_special_form(&s, &l.rest().to_vec(), env)
+                        .or_else(|_| eval_function_call(&l.to_vec(), env)),
                     _ => Err("Expected a function symbol".to_string()),
                 })
         }
