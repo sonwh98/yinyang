@@ -31,7 +31,7 @@ impl<'a, T: Clone> Iterator for ListIter<'a, T> {
     }
 }
 
-impl<T:Clone> List<T>
+impl<T: Clone> List<T>
 where
     T: Clone,
 {
@@ -56,6 +56,10 @@ where
             List::Cons(head, _) => Some(head),
             List::Nil => None,
         }
+    }
+
+    pub fn first(&self) -> Option<&T> {
+        head(self)
     }
 
     // Get the tail (rest) of the list
@@ -90,7 +94,13 @@ where
     /// Returns an iterator over references to the elements of the list
     pub fn iter(&self) -> ListIter<'_, T> {
         ListIter {
-            current: Some(self)
+            current: Some(self),
+        }
+    }
+    pub fn rest(&self) -> Self {
+        match self {
+            List::Cons(_, tail) => (**tail).clone(),
+            List::Nil => List::Nil,
         }
     }
 }
