@@ -59,7 +59,7 @@ where
     }
 
     pub fn first(&self) -> Option<&T> {
-        head(self)
+        self.head()
     }
 
     // Get the tail (rest) of the list
@@ -89,6 +89,16 @@ where
             list = List::Cons(item, Rc::new(list));
         }
         list
+    }
+
+    pub fn to_vec(&self) -> Vec<T> {
+        let mut result = Vec::new();
+        let mut current = self;
+        while let List::Cons(head, tail) = current {
+            result.push(head.clone());
+            current = tail;
+        }
+        result
     }
 
     /// Returns an iterator over references to the elements of the list
