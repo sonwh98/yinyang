@@ -45,7 +45,7 @@ impl EDN {
             EDN::List(_) => CollectionConfig {
                 opening: "(",
                 closing: ")",
-                constructor: |items| EDN::List(items),
+                constructor: |items| EDN::List(Box::new(list::List::from_vec(items))),
             },
             EDN::Vector(_) => CollectionConfig {
                 opening: "[",
@@ -347,7 +347,7 @@ fn parse_collection_helper(
 
         match buffer.as_str() {
             "(" => handle_nested_collection(
-                &EDN::List(Vec::new()),
+		&EDN::List(Box::new(list::List::new())),
                 astr_iter,
                 &mut nesting_level,
                 items,
@@ -534,7 +534,7 @@ pub fn parse_symbol(astr: &str) -> Result<EDN, ParseError> {
 }
 
 fn parse_list(astr: &str) -> Result<EDN, ParseError> {
-    parse_collection_with_type(astr, &EDN::List(Vec::new()))
+    parse_collection_with_type(astr, &EDN::List(Box::new(list::List::new())))
 }
 
 fn parse_vector(astr: &str) -> Result<EDN, ParseError> {
