@@ -9,6 +9,28 @@ where
     Nil,
 }
 
+pub struct ListIter<'a, T: Clone> {
+    current: Option<&'a List<T>>,
+}
+
+impl<'a, T: Clone> Iterator for ListIter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current?;
+        match current {
+            List::Nil => {
+                self.current = None;
+                None
+            }
+            List::Cons(head, tail) => {
+                self.current = Some(&*tail);
+                Some(head)
+            }
+        }
+    }
+}
+
 impl<T:Clone> List<T>
 where
     T: Clone,
@@ -63,5 +85,12 @@ where
             list = List::Cons(item, Rc::new(list));
         }
         list
+    }
+
+    /// Returns an iterator over references to the elements of the list
+    pub fn iter(&self) -> ListIter<'_, T> {
+        ListIter {
+            current: Some(self)
+        }
     }
 }
