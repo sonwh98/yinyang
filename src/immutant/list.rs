@@ -50,6 +50,16 @@ where
         List::Cons(element, Rc::new(self.clone()))
     }
 
+    pub fn append<I>(&self, other: I) -> Self
+    where
+        I: Into<List<T>>,
+    {
+        match self {
+            List::Nil => other.into(),
+            List::Cons(head, tail) => List::Cons(head.clone(), Rc::new(tail.append(other))),
+        }
+    }
+
     // Get the head (first element) of the list
     pub fn head(&self) -> Option<&T> {
         match self {
@@ -113,4 +123,15 @@ where
             List::Nil => List::Nil,
         }
     }
+}
+
+
+pub fn to_vec<T: Clone>(a_list: List<T>) -> Vec<T> {
+    let mut result = Vec::new();
+    let mut current = a_list;
+    while let List::Cons(head, tail) = current {
+        result.push(head);
+        current = (*tail).clone();
+    }
+    result
 }

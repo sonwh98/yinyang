@@ -103,13 +103,12 @@ mod tests {
             inner_list.push(EDN::Vector(inner_vec));
             inner_list.push(EDN::Integer(5.into()));
 
-	    //TODO: fix this test
-            // let mut hset = HashSet::new();
-            // hset.insert(EDN::Integer(1.into()));
-            // hset.insert(EDN::List(Box::new(inner_list)));
+        //TODO: fix this test
+        // let mut hset = HashSet::new();
+        // hset.insert(EDN::Integer(1.into()));
+        // hset.insert(EDN::List(Box::new(inner_list)));
 
-            // assert_eq!(hset, set);
-	    
+        // assert_eq!(hset, set);
         } else {
             panic!("Expected Set");
         }
@@ -118,7 +117,7 @@ mod tests {
     fn test_nested_string_in_collection() {
         let rs = read_string("(\"[1]\")");
         //let v = EDN::List(Box::new(vec![EDN::String("[1]".to_string())]));
-	let v = EDN::List(Box::new(List::singleton(EDN::String("[1]".to_string()))));
+        let v = EDN::List(Box::new(List::singleton(EDN::String("[1]".to_string()))));
         assert_eq!(v, rs.unwrap());
     }
 
@@ -154,9 +153,10 @@ mod tests {
     fn test_special_form_def() {
         let mut env = HashMap::new();
 
-	let a_sexp = List::singleton(EDN::Symbol("def".to_string())).cons(EDN::Symbol("pi".to_string()))
-	    .cons(EDN::Float(BigDecimal::from_str("3.14").unwrap()));
-            
+        let a_sexp = List::singleton(EDN::Symbol("def".to_string()))
+            .append(EDN::Symbol("pi".to_string()))
+            .append(EDN::Float(BigDecimal::from_str("3.14").unwrap()));
+
         let def_expr = EDN::List(Box::new(a_sexp));
 
         let a_var = eval(def_expr, &mut env).unwrap();
