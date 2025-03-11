@@ -125,7 +125,6 @@ where
     }
 }
 
-
 pub fn to_vec<T: Clone>(a_list: List<T>) -> Vec<T> {
     let mut result = Vec::new();
     let mut current = a_list;
