@@ -1,6 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::str::FromStr;
-use yinyang::clojure::{eval, read_string, register_native_fn, Value, EDN};
+use yinyang::clojure::{eval, read_string, Value, EDN};
+use yinyang::core::register_native_fn;
 use yinyang::immutant::list::List;
 
 #[cfg(test)]

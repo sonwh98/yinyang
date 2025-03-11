@@ -1,6 +1,6 @@
 use crate::clojure::*;
 use bigdecimal::BigDecimal;
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 pub fn add(args: Vec<Value>) -> Result<Value, String> {
     let mut sum = BigDecimal::from(0);

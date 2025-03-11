@@ -1,7 +1,7 @@
 use yinyang::clojure::*;
 use yinyang::core::*;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::{self, Write};
 
 fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
