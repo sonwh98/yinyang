@@ -4,14 +4,6 @@ use yinyang::core::*;
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Write};
 
-pub fn register_native_fn(
-    env: &mut HashMap<String, Value>,
-    name: &str,
-    f: fn(Vec<Value>) -> Result<Value, String>,
-) {
-    env.insert(name.to_string(), Value::Function(Callable::Native(f)));
-}
-
 fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err("read-string requires exactly 1 argument".to_string());
