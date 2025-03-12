@@ -26,15 +26,6 @@ pub enum EDN {
     Set(HashSet<EDN>),
 }
 
-impl From<EDN> for list::List<EDN> {
-    fn from(item: EDN) -> Self {
-        println!("from {:?}", item);
-        let mut list = list::List::new();
-        list.cons(item);
-        list
-    }
-}
-
 #[derive(Debug)]
 struct CollectionConfig {
     opening: &'static str,
