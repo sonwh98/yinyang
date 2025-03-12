@@ -114,6 +114,7 @@ where
             current: Some(self),
         }
     }
+
     pub fn rest(&self) -> Self {
         match self {
             List::Cons(_, tail) => (**tail).clone(),
@@ -132,14 +133,4 @@ where
 
         reversed
     }
-}
-
-pub fn to_vec<T: Clone>(a_list: List<T>) -> Vec<T> {
-    let mut result = Vec::new();
-    let mut current = a_list;
-    while let List::Cons(head, tail) = current {
-        result.push(head);
-        current = (*tail).clone();
-    }
-    result
 }
