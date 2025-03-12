@@ -1,3 +1,5 @@
+use bigdecimal::BigDecimal;
+use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::str::FromStr;
 use yinyang::clojure::{eval, read_string, Value, EDN};
@@ -7,8 +9,6 @@ use yinyang::immutant::list::List;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bigdecimal::BigDecimal;
-    use num_bigint::BigInt;
 
     #[test]
     fn test_single_value_parsing() {

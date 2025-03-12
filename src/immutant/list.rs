@@ -50,13 +50,10 @@ where
         List::Cons(element, Rc::new(self.clone()))
     }
 
-    pub fn append<I>(&self, other: I) -> Self
-    where
-        I: Into<List<T>>,
-    {
+    pub fn append(&self, element: T) -> Self {
         match self {
-            List::Nil => other.into(),
-            List::Cons(head, tail) => List::Cons(head.clone(), Rc::new(tail.append(other))),
+            List::Nil => List::singleton(element),
+            List::Cons(head, tail) => List::Cons(head.clone(), Rc::new(tail.append(element))),
         }
     }
 
@@ -122,6 +119,18 @@ where
             List::Cons(_, tail) => (**tail).clone(),
             List::Nil => List::Nil,
         }
+    }
+
+    pub fn reverse(&self) -> Self {
+        let mut current = self;
+        let mut reversed = List::Nil;
+
+        while let List::Cons(head, tail) = current {
+            reversed = List::Cons(head.clone(), Rc::new(reversed));
+            current = tail;
+        }
+
+        reversed
     }
 }
 
