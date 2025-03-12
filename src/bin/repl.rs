@@ -33,6 +33,9 @@ pub fn repl() {
     };
 
     register_native_fn(&mut env, "+", add);
+    register_native_fn(&mut env, "-", subtract);
+    register_native_fn(&mut env, "*", multiply);
+    register_native_fn(&mut env, "/", divide);
     register_native_fn(&mut env, "prn", println_fn);
     register_native_fn(&mut env, "print", println_fn);
     register_native_fn(&mut env, "println", println_fn);
