@@ -1,13 +1,14 @@
-use std::collections::{HashMap, HashSet};
+use bigdecimal::BigDecimal;
+use num_bigint::BigInt;
+use std::collections::HashMap;
 use std::str::FromStr;
-use yinyang::clojure::{eval, read_string, register_native_fn, Value, EDN};
+use yinyang::clojure::{eval, read_string, Value, EDN};
+use yinyang::core::register_native_fn;
 use yinyang::immutant::list::List;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bigdecimal::BigDecimal;
-    use num_bigint::BigInt;
 
     #[test]
     fn test_single_value_parsing() {
