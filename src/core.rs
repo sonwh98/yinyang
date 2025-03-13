@@ -1,7 +1,9 @@
 use crate::clojure::*;
+use crate::edn::*;
+
 use bigdecimal::BigDecimal;
-use std::collections::HashMap;
 use num_bigint::BigInt;
+use std::collections::HashMap;
 
 pub fn add(args: Vec<Value>) -> Result<Value, String> {
     let mut sum = BigDecimal::from(0);
@@ -35,7 +37,7 @@ pub fn subtract(args: Vec<Value>) -> Result<Value, String> {
     let result = iter.fold(first, |acc, arg| match arg {
         Value::EDN(EDN::Integer(i)) => acc - BigDecimal::from(i),
         Value::EDN(EDN::Float(f)) => acc - f,
-        _ => acc, 
+        _ => acc,
     });
 
     Ok(Value::EDN(EDN::Float(result)))
@@ -57,7 +59,6 @@ pub fn multiply(args: Vec<Value>) -> Result<Value, String> {
     }
     Ok(Value::EDN(EDN::Float(product)))
 }
-
 
 pub fn divide(args: Vec<Value>) -> Result<Value, String> {
     if args.is_empty() {
@@ -92,7 +93,6 @@ pub fn divide(args: Vec<Value>) -> Result<Value, String> {
 
     Ok(Value::EDN(EDN::Float(result)))
 }
-
 
 pub fn println_fn(args: Vec<Value>) -> Result<Value, String> {
     let strings: Vec<String> = args.iter().map(|arg| format!("{}", arg)).collect();

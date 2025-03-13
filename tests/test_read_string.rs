@@ -2,9 +2,10 @@ use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::str::FromStr;
-use yinyang::clojure::{eval, read_string, Value, EDN};
+use yinyang::clojure::{eval, read_string, Value};
 use yinyang::core::register_native_fn;
 use yinyang::immutant::list::List;
+use yinyang::edn::*;
 
 #[cfg(test)]
 mod tests {

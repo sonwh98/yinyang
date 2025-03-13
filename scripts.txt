@@ -1,0 +1,10 @@
+cargo test test_cons -- --nocapture
+
+
+
+rustc -o test_list test_list.rs && ./test_list
+
+cargo tree -p yinyang
+
+cargo run --bin test_list
+cargo run --bin yinyang
