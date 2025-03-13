@@ -10,6 +10,10 @@ Clojure implemented in Clojure. This is a science experiment with the ultimate g
  
 ## Options
 
+## Rust Usage
+
+	$ Cargo run --bin repl
+	
 ## Examples
 ```clojure
 
