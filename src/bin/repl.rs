@@ -18,20 +18,24 @@ fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
     Ok(Value::EDN(v))
 }
 
+fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
+    let mut env = HashMap::new();
+    register_native_fn(&mut env, "+", add);
+    
+    if args.len() != 1 {
+        return Err("eval requires exactly 1 argument".to_string());
+    }
+
+    let expr = match &args[0] {
+        Value::EDN(edn) => edn.clone(),
+        _ => return Err("eval argument must be an EDN value".to_string()),
+    };
+    eval(expr, &mut env)
+}
+
 pub fn repl() {
     let mut env = HashMap::new();
-    let eval_fn = |args: Vec<Value>| -> Result<Value, String> {
-        if args.len() != 1 {
-            return Err("eval requires exactly 1 argument".to_string());
-        }
-
-        let expr = match &args[0] {
-            Value::EDN(edn) => edn.clone(),
-            _ => return Err("eval argument must be an EDN value".to_string()),
-        };
-        eval(expr, &mut env)
-    };
-
+ 
     register_native_fn(&mut env, "+", add);
     register_native_fn(&mut env, "-", subtract);
     register_native_fn(&mut env, "*", multiply);
@@ -40,7 +44,8 @@ pub fn repl() {
     register_native_fn(&mut env, "print", println_fn);
     register_native_fn(&mut env, "println", println_fn);
     register_native_fn(&mut env, "read-string", read_string_wrapper);
-
+    register_native_fn(&mut env, "eval", eval_wrapper);
+    
     loop {
         print!("user=> ");
         if io::stdout().flush().is_err() {
