@@ -13,35 +13,23 @@ mod tests {
 
     #[test]
     fn test_single_value_parsing() {
-        // Test for Nil
         assert_eq!(read_string("nil").unwrap(), EDN::Nil);
-
-        // Test for Boolean
         assert_eq!(read_string("true").unwrap(), EDN::Bool(true));
         assert_eq!(read_string("false").unwrap(), EDN::Bool(false));
-
-        // Test for Integer
         assert_eq!(read_string("42").unwrap(), EDN::Integer(BigInt::from(42)));
-
-        // Test for Float
         assert_eq!(
             read_string("3.14").unwrap(),
             EDN::Float(BigDecimal::from_str("3.14").unwrap())
         );
-
-        // Test for Keyword
         assert_eq!(
             read_string(":keyword").unwrap(),
             EDN::Keyword(":keyword".to_string())
         );
 
-        // Test for String
         assert_eq!(
             read_string("\"hello\"").unwrap(),
             EDN::String("hello".to_string())
         );
-
-        //Test for Symbol
         assert_eq!(
             read_string("symbol").unwrap(),
             EDN::Symbol("symbol".to_string())
@@ -74,7 +62,6 @@ mod tests {
 
     #[test]
     fn test_map_parsing() {
-        // Test for Map
         let mut expected_map = HashMap::new();
         expected_map.insert(
             EDN::Keyword(":key".to_string()),
