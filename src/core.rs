@@ -4,6 +4,8 @@ use crate::edn::*;
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
 use std::collections::HashMap;
+use std::fs;
+use std::io::Read;
 
 pub fn add(args: Vec<Value>) -> Result<Value, String> {
     let mut sum = BigDecimal::from(0);
@@ -98,6 +100,24 @@ pub fn println_fn(args: Vec<Value>) -> Result<Value, String> {
     let strings: Vec<String> = args.iter().map(|arg| format!("{}", arg)).collect();
     println!("{}", strings.join(" "));
     Ok(Value::EDN(EDN::Nil))
+}
+
+pub fn slurp(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err("slurp requires exactly one argument".to_string());
+    }
+
+    match &args[0] {
+        Value::EDN(EDN::String(path)) => {
+            let mut file =
+                fs::File::open(path).map_err(|e| format!("Error opening file: {}", e))?;
+            let mut content = String::new();
+            file.read_to_string(&mut content)
+                .map_err(|e| format!("Error reading file: {}", e))?;
+            Ok(Value::EDN(EDN::String(content)))
+        }
+        _ => Err("slurp argument must be a string representing a file path".to_string()),
+    }
 }
 
 pub fn register_native_fn(
