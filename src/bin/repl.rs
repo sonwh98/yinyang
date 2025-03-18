@@ -21,7 +21,7 @@ fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
 fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
     let mut env = HashMap::new();
     register_native_fn(&mut env, "+", add);
-
+    
     if args.len() != 1 {
         return Err("eval requires exactly 1 argument".to_string());
     }
@@ -33,24 +33,29 @@ fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
     eval(expr, &mut env)
 }
 
-/// Reads multiple lines until an empty line is entered.
+/// Reads multiple lines until two consecutive newlines are entered.
 fn read_multiline_input() -> String {
-    let mut input = String::new();
     let mut buffer = String::new();
+    let mut empty_line_count = 0; // Tracks consecutive empty lines
 
     loop {
         print!("user=> ");
         io::stdout().flush().unwrap();
 
-        input.clear();
+        let mut input = String::new();
         if io::stdin().read_line(&mut input).is_err() {
             eprintln!("Error reading input.");
             continue;
         }
 
-        // Stop reading when an empty line (just a newline) is entered
+        // Check if the input is an empty line
         if input.trim().is_empty() {
-            break;
+            empty_line_count += 1;
+            if empty_line_count >= 2 {
+                break; // Stop reading, but do not exit the REPL
+            }
+        } else {
+            empty_line_count = 0; // Reset if a non-empty line is entered
         }
 
         buffer.push_str(&input);
@@ -75,8 +80,8 @@ pub fn repl() {
 
     loop {
         let input = read_multiline_input();
-        if input.is_empty() {
-            break; // Exit if user presses enter twice without input
+        if input.trim().is_empty() {
+            continue; // Do not exit, just prompt again
         }
 
         match read_string(&input) {
