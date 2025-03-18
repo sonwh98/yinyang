@@ -33,8 +33,8 @@ fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
     eval(expr, &mut env)
 }
 
-/// Reads multiple lines until two consecutive newlines are entered.
-fn read_multiline_input() -> String {
+/// Reads multiple lines until two consecutive newlines are entered or Ctrl+D is pressed.
+fn read_multiline_input() -> Option<String> {
     let mut buffer = String::new();
     let mut empty_line_count = 0; // Tracks consecutive empty lines
 
@@ -43,25 +43,38 @@ fn read_multiline_input() -> String {
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
-        if io::stdin().read_line(&mut input).is_err() {
-            eprintln!("Error reading input.");
-            continue;
-        }
-
-        // Check if the input is an empty line
-        if input.trim().is_empty() {
-            empty_line_count += 1;
-            if empty_line_count >= 2 {
-                break; // Stop reading, but do not exit the REPL
+        match io::stdin().read_line(&mut input) {
+            Ok(0) => {
+                println!("\nGoodbye!"); // Handle Ctrl+D (EOF)
+                return None; 
             }
-        } else {
-            empty_line_count = 0; // Reset if a non-empty line is entered
-        }
+            Ok(_) => {
+                // Check if the input is `:clj/quit`
+                if input.trim() == ":clj/quit" {
+                    println!("Goodbye!");
+                    return None;
+                }
 
-        buffer.push_str(&input);
+                // Check if the input is an empty line
+                if input.trim().is_empty() {
+                    empty_line_count += 1;
+                    if empty_line_count >= 2 {
+                        break; // Stop reading, but do not exit the REPL
+                    }
+                } else {
+                    empty_line_count = 0; // Reset if a non-empty line is entered
+                }
+
+                buffer.push_str(&input);
+            }
+            Err(_) => {
+                eprintln!("Error reading input.");
+                continue;
+            }
+        }
     }
 
-    buffer
+    Some(buffer)
 }
 
 pub fn repl() {
@@ -79,17 +92,18 @@ pub fn repl() {
     register_native_fn(&mut env, "slurp", slurp);
 
     loop {
-        let input = read_multiline_input();
-        if input.trim().is_empty() {
-            continue; // Do not exit, just prompt again
-        }
-
-        match read_string(&input) {
-            Ok(ast) => match eval(ast, &mut env) {
-                Ok(val) => println!("{}", val),
-                Err(e) => eprintln!("Error: {}", e),
-            },
-            Err(e) => eprintln!("Parse error: {:?}", e),
+        match read_multiline_input() {
+            Some(input) if !input.trim().is_empty() => {
+                match read_string(&input) {
+                    Ok(ast) => match eval(ast, &mut env) {
+                        Ok(val) => println!("{}", val),
+                        Err(e) => eprintln!("Error: {}", e),
+                    },
+                    Err(e) => eprintln!("Parse error: {:?}", e),
+                }
+            }
+            Some(_) => continue, // Empty input, restart REPL
+            None => break, // Exit REPL on Ctrl+D or `:clj/quit`
         }
     }
 }
