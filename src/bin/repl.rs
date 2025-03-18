@@ -21,7 +21,7 @@ fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
 fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
     let mut env = HashMap::new();
     register_native_fn(&mut env, "+", add);
-    
+
     if args.len() != 1 {
         return Err("eval requires exactly 1 argument".to_string());
     }
@@ -33,9 +33,35 @@ fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
     eval(expr, &mut env)
 }
 
+/// Reads multiple lines until an empty line is entered.
+fn read_multiline_input() -> String {
+    let mut input = String::new();
+    let mut buffer = String::new();
+
+    loop {
+        print!("user=> ");
+        io::stdout().flush().unwrap();
+
+        input.clear();
+        if io::stdin().read_line(&mut input).is_err() {
+            eprintln!("Error reading input.");
+            continue;
+        }
+
+        // Stop reading when an empty line (just a newline) is entered
+        if input.trim().is_empty() {
+            break;
+        }
+
+        buffer.push_str(&input);
+    }
+
+    buffer
+}
+
 pub fn repl() {
     let mut env = HashMap::new();
- 
+
     register_native_fn(&mut env, "+", add);
     register_native_fn(&mut env, "-", subtract);
     register_native_fn(&mut env, "*", multiply);
@@ -48,32 +74,17 @@ pub fn repl() {
     register_native_fn(&mut env, "slurp", slurp);
 
     loop {
-        print!("user=> ");
-        if io::stdout().flush().is_err() {
-            eprintln!("Error: Failed to flush stdout");
-            continue;
+        let input = read_multiline_input();
+        if input.is_empty() {
+            break; // Exit if user presses enter twice without input
         }
 
-        let mut input = String::new();
-        match io::stdin().read_line(&mut input) {
-            Ok(0) => break, // EOF
-            Ok(_) => {
-                if input.trim().is_empty() {
-                    continue;
-                }
-
-                match read_string(&input) {
-                    Ok(ast) => match eval(ast, &mut env) {
-                        Ok(val) => println!("{}", val),
-                        Err(e) => eprintln!("Error: {}", e),
-                    },
-                    Err(e) => eprintln!("Parse error: {:?}", e),
-                }
-            }
-            Err(e) => {
-                eprintln!("Error reading input: {}", e);
-                continue;
-            }
+        match read_string(&input) {
+            Ok(ast) => match eval(ast, &mut env) {
+                Ok(val) => println!("{}", val),
+                Err(e) => eprintln!("Error: {}", e),
+            },
+            Err(e) => eprintln!("Parse error: {:?}", e),
         }
     }
 }
