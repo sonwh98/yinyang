@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::{self, Write};
+use std::io::{self, BufRead, Write};
 use yinyang::clojure::*;
 use yinyang::core::*;
 use yinyang::edn::*;
@@ -21,7 +21,7 @@ fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
 fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
     let mut env = HashMap::new();
     register_native_fn(&mut env, "+", add);
-    
+
     if args.len() != 1 {
         return Err("eval requires exactly 1 argument".to_string());
     }
@@ -33,48 +33,33 @@ fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
     eval(expr, &mut env)
 }
 
-/// Reads multiple lines until two consecutive newlines are entered or Ctrl+D is pressed.
-fn read_multiline_input() -> Option<String> {
-    let mut buffer = String::new();
-    let mut empty_line_count = 0; // Tracks consecutive empty lines
+/// Function to check if parentheses, brackets, and braces are balanced
+fn is_form_complete(input: &str) -> bool {
+    let mut stack = Vec::new();
 
-    loop {
-        print!("user=> ");
-        io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        match io::stdin().read_line(&mut input) {
-            Ok(0) => {
-                println!("\nGoodbye!"); // Handle Ctrl+D (EOF)
-                return None; 
-            }
-            Ok(_) => {
-                // Check if the input is `:clj/quit`
-                if input.trim() == ":clj/quit" {
-                    println!("Goodbye!");
-                    return None;
+    for c in input.chars() {
+        match c {
+            '(' | '[' | '{' => stack.push(c),
+            ')' => {
+                if stack.pop() != Some('(') {
+                    return false;
                 }
-
-                // Check if the input is an empty line
-                if input.trim().is_empty() {
-                    empty_line_count += 1;
-                    if empty_line_count >= 2 {
-                        break; // Stop reading, but do not exit the REPL
-                    }
-                } else {
-                    empty_line_count = 0; // Reset if a non-empty line is entered
+            }
+            ']' => {
+                if stack.pop() != Some('[') {
+                    return false;
                 }
-
-                buffer.push_str(&input);
             }
-            Err(_) => {
-                eprintln!("Error reading input.");
-                continue;
+            '}' => {
+                if stack.pop() != Some('{') {
+                    return false;
+                }
             }
+            _ => {}
         }
     }
 
-    Some(buffer)
+    stack.is_empty()
 }
 
 pub fn repl() {
@@ -91,19 +76,60 @@ pub fn repl() {
     register_native_fn(&mut env, "eval", eval_wrapper);
     register_native_fn(&mut env, "slurp", slurp);
 
+    let stdin = io::stdin();
+    let mut reader = io::BufReader::new(stdin.lock());
+
     loop {
-        match read_multiline_input() {
-            Some(input) if !input.trim().is_empty() => {
-                match read_string(&input) {
-                    Ok(ast) => match eval(ast, &mut env) {
-                        Ok(val) => println!("{}", val),
-                        Err(e) => eprintln!("Error: {}", e),
-                    },
-                    Err(e) => eprintln!("Parse error: {:?}", e),
-                }
+        let mut buffer = String::new();
+
+        print!("user=> ");
+        if io::stdout().flush().is_err() {
+            eprintln!("Error: Failed to flush stdout");
+            continue;
+        }
+
+        // Read input line-by-line until the form is complete
+        let mut line = String::new();
+        while reader.read_line(&mut line).is_ok() {
+            if line.is_empty() {
+                println!("\nExiting REPL...");
+                return; // Exit on EOF (Ctrl-D)
             }
-            Some(_) => continue, // Empty input, restart REPL
-            None => break, // Exit REPL on Ctrl+D or `:clj/quit`
+
+            buffer.push_str(&line);
+
+            // Check if the form is complete
+            if is_form_complete(&buffer) {
+                break;
+            }
+
+            print!("...   "); // Indicate multi-line input
+            if io::stdout().flush().is_err() {
+                eprintln!("Error: Failed to flush stdout");
+                continue;
+            }
+
+            line.clear(); // Clear line buffer for next input
+        }
+
+        let trimmed_input = buffer.trim();
+        if trimmed_input.is_empty() {
+            continue;
+        }
+
+        // Check for mismatched or unclosed forms
+        if !is_form_complete(trimmed_input) {
+            eprintln!("Error: Unmatched parentheses/brackets/braces in input.");
+            continue;
+        }
+
+        let ast = read_string(trimmed_input);
+        match ast {
+            Ok(ast) => match eval(ast, &mut env) {
+                Ok(val) => println!("{}", val),
+                Err(e) => eprintln!("Error: {}", e),
+            },
+            Err(e) => eprintln!("Parse error: {:?}", e),
         }
     }
 }

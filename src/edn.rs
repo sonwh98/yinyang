@@ -1,15 +1,10 @@
 use crate::immutant::list;
 use bigdecimal::BigDecimal;
-use log::debug;
 use num_bigint::BigInt;
-use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-
-use std::str::Chars;
-use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub enum EDN {
