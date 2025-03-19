@@ -3,8 +3,10 @@ use crate::edn::*;
 
 use bigdecimal::BigDecimal;
 use num_bigint::BigInt;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::io::Read;
 
 pub fn add(args: Vec<Value>) -> Result<Value, String> {
@@ -126,4 +128,40 @@ pub fn register_native_fn(
     f: fn(Vec<Value>) -> Result<Value, String>,
 ) {
     env.insert(name.to_string(), Value::Function(Callable::Native(f)));
+}
+
+/// Computes a hash for a `Value`
+/// Delegates to EDN where applicable
+fn hash_value(value: &Value) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    match value {
+        Value::EDN(edn) => edn.hash(&mut hasher), // Use EDN's Hash implementation
+        Value::Var { ns, name, value } => {
+            ns.hash(&mut hasher);
+            name.hash(&mut hasher);
+            hash_value(value).hash(&mut hasher);
+        }
+        Value::Function(_) => {
+            // Functions cannot be compared for equality meaningfully
+            hasher.write_u8(255);
+        }
+    }
+    hasher.finish()
+}
+
+/// Generalized equality function using hash comparison
+pub fn equal(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() < 2 {
+        return Err("equal requires at least two arguments".to_string());
+    }
+
+    let first_hash = hash_value(&args[0]);
+
+    for arg in &args[1..] {
+        if hash_value(arg) != first_hash {
+            return Ok(Value::EDN(EDN::Bool(false)));
+        }
+    }
+
+    Ok(Value::EDN(EDN::Bool(true)))
 }
