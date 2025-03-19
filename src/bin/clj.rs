@@ -62,21 +62,7 @@ fn is_form_complete(input: &str) -> bool {
     stack.is_empty()
 }
 
-pub fn repl() {
-    let mut env = HashMap::new();
-
-    register_native_fn(&mut env, "+", add);
-    register_native_fn(&mut env, "-", subtract);
-    register_native_fn(&mut env, "*", multiply);
-    register_native_fn(&mut env, "/", divide);
-    register_native_fn(&mut env, "prn", println_fn);
-    register_native_fn(&mut env, "print", println_fn);
-    register_native_fn(&mut env, "println", println_fn);
-    register_native_fn(&mut env, "read-string", read_string_wrapper);
-    register_native_fn(&mut env, "eval", eval_wrapper);
-    register_native_fn(&mut env, "slurp", slurp);
-    register_native_fn(&mut env, "=", equal);
-
+pub fn repl(env: &mut HashMap<String, Value>) {
     let stdin = io::stdin();
     let mut reader = io::BufReader::new(stdin.lock());
 
@@ -89,28 +75,26 @@ pub fn repl() {
             continue;
         }
 
-        // Read input line-by-line until the form is complete
         let mut line = String::new();
         while reader.read_line(&mut line).is_ok() {
             if line.is_empty() {
                 println!("\nExiting REPL...");
-                return; // Exit on EOF (Ctrl-D)
+                return;
             }
 
             buffer.push_str(&line);
 
-            // Check if the form is complete
             if is_form_complete(&buffer) {
                 break;
             }
 
-            print!("...   "); // Indicate multi-line input
+            print!("...   ");
             if io::stdout().flush().is_err() {
                 eprintln!("Error: Failed to flush stdout");
                 continue;
             }
 
-            line.clear(); // Clear line buffer for next input
+            line.clear();
         }
 
         let trimmed_input = buffer.trim();
@@ -118,7 +102,6 @@ pub fn repl() {
             continue;
         }
 
-        // Check for mismatched or unclosed forms
         if !is_form_complete(trimmed_input) {
             eprintln!("Error: Unmatched parentheses/brackets/braces in input.");
             continue;
@@ -126,7 +109,7 @@ pub fn repl() {
 
         let ast = read_string(trimmed_input);
         match ast {
-            Ok(ast) => match eval(ast, &mut env) {
+            Ok(ast) => match eval(ast, env) {
                 Ok(val) => println!("{}", val),
                 Err(e) => eprintln!("Error: {}", e),
             },
@@ -136,5 +119,19 @@ pub fn repl() {
 }
 
 fn main() {
-    repl();
+    let mut env = HashMap::new();
+    // Register core functions
+    register_native_fn(&mut env, "+", add);
+    register_native_fn(&mut env, "-", subtract);
+    register_native_fn(&mut env, "*", multiply);
+    register_native_fn(&mut env, "/", divide);
+    register_native_fn(&mut env, "prn", println_fn);
+    register_native_fn(&mut env, "print", println_fn);
+    register_native_fn(&mut env, "println", println_fn);
+    register_native_fn(&mut env, "read-string", read_string_wrapper);
+    register_native_fn(&mut env, "eval", eval_wrapper);
+    register_native_fn(&mut env, "slurp", slurp);
+    register_native_fn(&mut env, "=", equal);
+
+    repl(&mut env);
 }
