@@ -7,8 +7,6 @@ use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
-
 use std::str::Chars;
 use std::str::FromStr;
 
@@ -146,7 +144,7 @@ fn parse_collection_helper(
             string_start = true;
         }
 
-        if !matches!(ch, ' ' | ',' | ')' | ']' | '}') {
+        if !matches!(ch, ' ' | '\n' | ',' | ')' | ']' | '}') {
             buffer.push(ch);
         }
 
@@ -186,7 +184,7 @@ fn parse_collection_helper(
                     if nesting_level == 0 {
                         break;
                     }
-                } else if matches!(ch, ' ' | ',') {
+                } else if matches!(ch, ' ' | '\n' | ',') {
                     parse_buffer(&mut buffer, items);
                 }
             }
@@ -349,7 +347,8 @@ fn parse_all(astr: &str) -> Result<EDN, ParseError> {
 
     for parser in parsers {
         debug!("parser={:?}", parser);
-        match parser(astr) {
+        let ast = parser(astr);
+        match ast {
             Ok(result) => return Ok(result),
             Err(ParseError::NestingError(e)) => {
                 return Err(ParseError::NestingError(e));
