@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::env;
+use std::fs;
 use std::io::{self, BufRead, Write};
 use yinyang::clojure::*;
 use yinyang::core::*;
@@ -133,5 +135,22 @@ fn main() {
     register_native_fn(&mut env, "slurp", slurp);
     register_native_fn(&mut env, "=", equal);
 
-    repl(&mut env);
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        // Run a script file if provided
+        let filename = &args[1];
+        match fs::read_to_string(filename) {
+            Ok(content) => match read_string(&content) {
+                Ok(ast) => match eval(ast, &mut env) {
+                    Ok(val) => println!("{}", val),
+                    Err(e) => eprintln!("Error: {}", e),
+                },
+                Err(e) => eprintln!("Parse error: {:?}", e),
+            },
+            Err(e) => eprintln!("Error reading file '{}': {}", filename, e),
+        }
+    } else {
+        // Start REPL if no file is provided
+        repl(&mut env);
+    }
 }
