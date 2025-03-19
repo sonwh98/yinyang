@@ -75,6 +75,7 @@ pub fn repl() {
     register_native_fn(&mut env, "read-string", read_string_wrapper);
     register_native_fn(&mut env, "eval", eval_wrapper);
     register_native_fn(&mut env, "slurp", slurp);
+    register_native_fn(&mut env, "=", equal);
 
     let stdin = io::stdin();
     let mut reader = io::BufReader::new(stdin.lock());
