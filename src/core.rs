@@ -165,3 +165,33 @@ pub fn equal(args: Vec<Value>) -> Result<Value, String> {
 
     Ok(Value::EDN(EDN::Bool(true)))
 }
+
+pub fn less_than(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() < 2 {
+        return Err("< requires at least two arguments".to_string());
+    }
+
+    // Convert first argument to BigDecimal
+    let first = match &args[0] {
+        Value::EDN(EDN::Integer(i)) => BigDecimal::from(i.clone()),
+        Value::EDN(EDN::Float(f)) => f.clone(),
+        _ => return Err("Arguments to < must be numbers".to_string()),
+    };
+
+    // Compare each pair of adjacent numbers
+    let mut prev = first;
+    for arg in &args[1..] {
+        let curr = match arg {
+            Value::EDN(EDN::Integer(i)) => BigDecimal::from(i.clone()),
+            Value::EDN(EDN::Float(f)) => f.clone(),
+            _ => return Err("Arguments to < must be numbers".to_string()),
+        };
+        
+        if prev >= curr {
+            return Ok(Value::EDN(EDN::Bool(false)));
+        }
+        prev = curr;
+    }
+
+    Ok(Value::EDN(EDN::Bool(true)))
+}
