@@ -135,6 +135,7 @@ fn main() {
     register_native_fn(&mut env, "slurp", slurp);
     register_native_fn(&mut env, "=", equal);
     register_native_fn(&mut env, "<", less_than);
+    register_native_fn(&mut env, "<=", less_than_equal);
 
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
