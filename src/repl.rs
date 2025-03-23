@@ -64,6 +64,40 @@ fn is_form_complete(input: &str) -> bool {
     stack.is_empty()
 }
 
+/// Read multiple forms from a string into a vector of EDN
+fn read_forms(input: &str) -> Result<Vec<EDN>, ParseError> {
+    let mut forms = Vec::new();
+    let mut current = String::new();
+    let mut paren_count = 0;
+
+    for ch in input.chars() {
+        match ch {
+            '(' => {
+                paren_count += 1;
+                current.push(ch);
+            }
+            ')' => {
+                paren_count -= 1;
+                current.push(ch);
+                if paren_count == 0 && !current.trim().is_empty() {
+                    match read_string(&current) {
+                        Ok(form) => forms.push(form),
+                        Err(e) => return Err(e),
+                    }
+                    current.clear();
+                }
+            }
+            _ => {
+                if paren_count > 0 || !ch.is_whitespace() {
+                    current.push(ch);
+                }
+            }
+        }
+    }
+
+    Ok(forms)
+}
+
 pub fn repl(env: &mut HashMap<String, Value>) {
     // Check for script file argument first
     let args: Vec<String> = env::args().collect();
@@ -71,13 +105,23 @@ pub fn repl(env: &mut HashMap<String, Value>) {
         // Run a script file if provided
         let filename = &args[1];
         match fs::read_to_string(filename) {
-            Ok(content) => match read_string(&content) {
-                Ok(ast) => match eval(ast, env) {
-                    Ok(val) => println!("{}", val),
-                    Err(e) => eprintln!("Error: {}", e),
-                },
-                Err(e) => eprintln!("Parse error: {:?}", e),
-            },
+            Ok(content) => {
+                match read_forms(&content) {
+                    Ok(forms) => {
+                        // Execute each form sequentially
+                        for form in forms {
+                            match eval(form, env) {
+                                Ok(val) => println!("{}", val),
+                                Err(e) => {
+                                    eprintln!("Evaluation error: {}", e);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => eprintln!("Parse error: {:?}", e),
+                }
+            }
             Err(e) => eprintln!("Error reading file '{}': {}", filename, e),
         }
         return;
