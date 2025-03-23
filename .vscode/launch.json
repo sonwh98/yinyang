@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo launch",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin",
+                    "m",
+                ]
+            },
+            "args": []
+        },
+        
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Rust",
+            "program": "${workspaceFolder}/target/debug/yinyang",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false,
+            "terminal": "integrated",
+            "sourceLanguages": ["rust"]
+        }
+    ]
+}
