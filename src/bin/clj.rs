@@ -1,6 +1,6 @@
-use yinyang::repl::{create_env, start_repl};
+use yinyang::repl::{create_env, repl};
 
 fn main() {
     let mut env = create_env();
-    start_repl(&mut env);
+    repl(&mut env);
 }

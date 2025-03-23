@@ -65,6 +65,25 @@ fn is_form_complete(input: &str) -> bool {
 }
 
 pub fn repl(env: &mut HashMap<String, Value>) {
+    // Check for script file argument first
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        // Run a script file if provided
+        let filename = &args[1];
+        match fs::read_to_string(filename) {
+            Ok(content) => match read_string(&content) {
+                Ok(ast) => match eval(ast, env) {
+                    Ok(val) => println!("{}", val),
+                    Err(e) => eprintln!("Error: {}", e),
+                },
+                Err(e) => eprintln!("Parse error: {:?}", e),
+            },
+            Err(e) => eprintln!("Error reading file '{}': {}", filename, e),
+        }
+        return;
+    }
+
+    // Start interactive REPL
     let stdin = io::stdin();
     let mut reader = io::BufReader::new(stdin.lock());
 
@@ -117,27 +136,6 @@ pub fn repl(env: &mut HashMap<String, Value>) {
             },
             Err(e) => eprintln!("Parse error: {:?}", e),
         }
-    }
-}
-
-pub fn start_repl(env: &mut HashMap<String, Value>) {
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 1 {
-        // Run a script file if provided
-        let filename = &args[1];
-        match fs::read_to_string(filename) {
-            Ok(content) => match read_string(&content) {
-                Ok(ast) => match eval(ast, env) {
-                    Ok(val) => println!("{}", val),
-                    Err(e) => eprintln!("Error: {}", e),
-                },
-                Err(e) => eprintln!("Parse error: {:?}", e),
-            },
-            Err(e) => eprintln!("Error reading file '{}': {}", filename, e),
-        }
-    } else {
-        // Start REPL if no file is provided
-        repl(env);
     }
 }
 
