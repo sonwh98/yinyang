@@ -1,11 +1,8 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum List<T>
-where
-    T: Clone,
-{
-    Cons(T, Rc<List<T>>),
+#[derive(Debug, Clone, PartialEq)]
+pub enum List<T> {
+    Cons(T, Arc<List<T>>),
     Nil,
 }
 
@@ -31,10 +28,7 @@ impl<'a, T: Clone> Iterator for ListIter<'a, T> {
     }
 }
 
-impl<T: Clone> List<T>
-where
-    T: Clone,
-{
+impl<T: Clone> List<T> {
     // Create a new empty list
     pub fn new() -> Self {
         List::Nil
@@ -42,18 +36,23 @@ where
 
     // Create a new list with a single element
     pub fn singleton(element: T) -> Self {
-        List::Cons(element, Rc::new(List::Nil))
+        List::Cons(element, Arc::new(List::Nil))
     }
 
-    // Add an element to the front of the list
-    pub fn cons(&self, element: T) -> Self {
-        List::Cons(element, Rc::new(self.clone()))
+    // Static method to create a new list with an element in front
+    pub fn cons(item: T, list: List<T>) -> Self {
+        List::Cons(item, Arc::new(list))
+    }
+
+    // Instance method to add an element to the front
+    pub fn cons_front(&self, element: T) -> Self {
+        List::Cons(element, Arc::new(self.clone()))
     }
 
     pub fn append(&self, element: T) -> Self {
         match self {
             List::Nil => List::singleton(element),
-            List::Cons(head, tail) => List::Cons(head.clone(), Rc::new(tail.append(element))),
+            List::Cons(head, tail) => List::Cons(head.clone(), Arc::new(tail.append(element))),
         }
     }
 
@@ -70,9 +69,9 @@ where
     }
 
     // Get the tail (rest) of the list
-    pub fn tail(&self) -> Option<Rc<List<T>>> {
+    pub fn tail(&self) -> Option<Arc<List<T>>> {
         match self {
-            List::Cons(_, tail) => Some(Rc::clone(tail)),
+            List::Cons(_, tail) => Some(Arc::clone(tail)),
             List::Nil => None,
         }
     }
@@ -93,7 +92,7 @@ where
     pub fn from_vec(v: Vec<T>) -> Self {
         let mut list = List::Nil;
         for item in v.into_iter().rev() {
-            list = List::Cons(item, Rc::new(list));
+            list = List::Cons(item, Arc::new(list));
         }
         list
     }
@@ -127,7 +126,7 @@ where
         let mut reversed = List::Nil;
 
         while let List::Cons(head, tail) = current {
-            reversed = List::Cons(head.clone(), Rc::new(reversed));
+            reversed = List::Cons(head.clone(), Arc::new(reversed));
             current = tail;
         }
 

@@ -9,6 +9,21 @@ use std::fmt;
 use std::fmt::Debug;
 use std::str::Chars;
 use std::str::FromStr;
+use std::sync::Arc;
+
+pub struct NativeFn(pub Arc<dyn Fn(Vec<Value>) -> Result<Value, String> + Send + Sync + 'static>);
+
+impl Clone for NativeFn {
+    fn clone(&self) -> Self {
+        NativeFn(self.0.clone())
+    }
+}
+
+impl std::fmt::Debug for NativeFn {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<native-fn>")
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Callable {
@@ -17,7 +32,7 @@ pub enum Callable {
         body: EDN,
         closure: HashMap<String, Value>,
     },
-    Native(fn(Vec<Value>) -> Result<Value, String>),
+    Native(NativeFn),
 }
 
 impl Callable {
@@ -48,7 +63,7 @@ impl Callable {
 
                 eval(body.clone(), &mut new_env)
             }
-            Callable::Native(f) => f(args),
+            Callable::Native(f) => f.0(args),
         }
     }
 }

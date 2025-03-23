@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
+use std::sync::Arc;
 
 pub fn add(args: Vec<Value>) -> Result<Value, String> {
     let mut sum = BigDecimal::from(0);
@@ -125,12 +126,14 @@ pub fn slurp_wrapper(args: Vec<Value>) -> Result<Value, String> {
     }
 }
 
-pub fn register_native_fn(
-    env: &mut HashMap<String, Value>,
-    name: &str,
-    f: fn(Vec<Value>) -> Result<Value, String>,
-) {
-    env.insert(name.to_string(), Value::Function(Callable::Native(f)));
+pub fn register_native_fn<F>(env: &mut HashMap<String, Value>, name: &str, f: F)
+where
+    F: Fn(Vec<Value>) -> Result<Value, String> + Send + Sync + 'static,
+{
+    env.insert(
+        name.to_string(),
+        Value::Function(Callable::Native(NativeFn(Arc::new(f)))),
+    );
 }
 
 /// Computes a hash for a `Value`

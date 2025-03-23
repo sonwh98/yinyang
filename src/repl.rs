@@ -1,10 +1,14 @@
 use crate::clojure::*;
+use crate::core::register_native_fn;
 use crate::core::*;
 use crate::edn::*;
 use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io::{self, BufRead, Write};
+use std::sync::{Arc, RwLock};
+
+pub type Environment = Arc<RwLock<HashMap<String, Value>>>;
 
 fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
@@ -21,8 +25,9 @@ fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
 }
 
 fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
-    let mut env = HashMap::new();
-    register_native_fn(&mut env, "+", add);
+    let env = Arc::new(RwLock::new(HashMap::new()));
+    let mut env_write = env.write().unwrap();
+    register_native_fn(&mut env_write, "+", add);
 
     if args.len() != 1 {
         return Err("eval requires exactly 1 argument".to_string());
@@ -32,7 +37,7 @@ fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
         Value::EDN(edn) => edn.clone(),
         _ => return Err("eval argument must be an EDN value".to_string()),
     };
-    eval(expr, &mut env)
+    eval(expr, &mut env_write)
 }
 
 /// Function to check if parentheses, brackets, and braces are balanced
@@ -98,7 +103,7 @@ fn read_forms(input: &str) -> Result<Vec<EDN>, ParseError> {
     Ok(forms)
 }
 
-pub fn repl(env: &mut HashMap<String, Value>) {
+pub fn repl(env: &Environment) {
     // Check for script file argument first
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
@@ -110,7 +115,8 @@ pub fn repl(env: &mut HashMap<String, Value>) {
                     Ok(forms) => {
                         // Execute each form sequentially
                         for form in forms {
-                            match eval(form, env) {
+                            let mut env_write = env.write().unwrap();
+                            match eval(form, &mut env_write) {
                                 Ok(val) => println!("{}", val),
                                 Err(e) => {
                                     eprintln!("Evaluation error: {}", e);
@@ -174,34 +180,58 @@ pub fn repl(env: &mut HashMap<String, Value>) {
 
         let ast = read_string(trimmed_input);
         match ast {
-            Ok(ast) => match eval(ast, env) {
-                Ok(val) => println!("{}", val),
-                Err(e) => eprintln!("Error: {}", e),
-            },
+            Ok(ast) => {
+                let mut env_write = env.write().unwrap();
+                match eval(ast, &mut env_write) {
+                    Ok(val) => println!("{}", val),
+                    Err(e) => eprintln!("Error: {}", e),
+                }
+            }
             Err(e) => eprintln!("Parse error: {:?}", e),
         }
     }
 }
 
-pub fn create_env() -> HashMap<String, Value> {
-    let mut env = HashMap::new();
+pub fn create_env() -> Environment {
+    let env = Arc::new(RwLock::new(HashMap::new()));
 
-    // Register core functions
-    register_native_fn(&mut env, "+", add);
-    register_native_fn(&mut env, "-", subtract);
-    register_native_fn(&mut env, "*", multiply);
-    register_native_fn(&mut env, "/", divide);
-    register_native_fn(&mut env, "prn", println_fn);
-    register_native_fn(&mut env, "print", println_fn);
-    register_native_fn(&mut env, "println", println_fn);
-    register_native_fn(&mut env, "read-string", read_string_wrapper);
-    register_native_fn(&mut env, "eval", eval_wrapper);
-    register_native_fn(&mut env, "slurp", slurp_wrapper);
-    register_native_fn(&mut env, "=", equal);
-    register_native_fn(&mut env, "<", less_than);
-    register_native_fn(&mut env, "<=", less_than_equal);
-    register_native_fn(&mut env, ">", greater_than_equal);
-    register_native_fn(&mut env, ">=", greater_than_equal);
+    // Create a new scope for the write lock
+    {
+        let mut env_write = env.write().unwrap();
+        let env_clone = env.clone();
+
+        // Create eval_wrapper closure that captures env_clone
+        let eval_wrapper = move |args: Vec<Value>| -> Result<Value, String> {
+            if args.len() != 1 {
+                return Err("eval requires exactly 1 argument".to_string());
+            }
+
+            let expr = match &args[0] {
+                Value::EDN(edn) => edn.clone(),
+                _ => return Err("eval argument must be an EDN value".to_string()),
+            };
+
+            let mut env_write = env_clone.write().unwrap();
+            eval(expr, &mut env_write)
+        };
+
+        // Register core functions
+        register_native_fn(&mut env_write, "+", add);
+        register_native_fn(&mut env_write, "-", subtract);
+        register_native_fn(&mut env_write, "*", multiply);
+        register_native_fn(&mut env_write, "/", divide);
+        register_native_fn(&mut env_write, "prn", println_fn);
+        register_native_fn(&mut env_write, "print", println_fn);
+        register_native_fn(&mut env_write, "println", println_fn);
+        register_native_fn(&mut env_write, "read-string", read_string_wrapper);
+        register_native_fn(&mut env_write, "eval", eval_wrapper);
+        register_native_fn(&mut env_write, "slurp", slurp_wrapper);
+        register_native_fn(&mut env_write, "=", equal);
+        register_native_fn(&mut env_write, "<", less_than);
+        register_native_fn(&mut env_write, "<=", less_than_equal);
+        register_native_fn(&mut env_write, ">", greater_than_equal);
+        register_native_fn(&mut env_write, ">=", greater_than_equal);
+    }
 
     env
 }
