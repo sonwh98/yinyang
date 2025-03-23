@@ -401,22 +401,34 @@ fn is_truthy(value: &Value) -> bool {
     }
 }
 
+fn is_special_form(form_name: &str) -> bool {
+    let special_forms = ["quote", "if", "def", "fn"];
+    special_forms.contains(&form_name)
+}
+
 pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String> {
     match ast {
         EDN::List(list) => {
             let l = *list;
+            println!("eval l={:?}", l);
             l.first()
                 .ok_or("Empty list".to_string())
                 .and_then(|first| match first {
                     EDN::Symbol(s) => eval_special_form(&s, &l.rest().to_vec(), env)
-                        .or_else(|_| eval_function_call(&l.to_vec(), env)),
+                        .or_else(|e| eval_function_call(&l.to_vec(), env)),
                     _ => Err("Expected a function symbol".to_string()),
                 })
         }
-        EDN::Symbol(name) => env
-            .get(&name)
-            .cloned()
-            .ok_or_else(|| format!("Undefined symbol: {}", name)),
+        EDN::Symbol(ref s) => {
+            println!("sonny ast={:?}", &ast);
+            if is_special_form(s) {
+                Ok(Value::EDN(EDN::Symbol(s.clone())))
+            } else {
+                env.get(s)
+                    .cloned()
+                    .ok_or_else(|| format!("Undefined symbol: {}", s))
+            }
+        }
         _ => Ok(Value::EDN(ast)),
     }
 }
@@ -428,11 +440,24 @@ fn eval_special_form(
 ) -> Result<Value, String> {
     eval_quote(form, args)
         .or_else(|_| eval_do(form, args, env))
-        .or_else(|_| eval_if(form, args, env))
-        .or_else(|_| eval_def(form, args, env))
+        .or_else(|e| {
+            let foo = eval_if(form, args, env);
+            println!("unknown1 special form: {:?} e={:?} foo={:?}", form, e, foo);
+            return foo;
+        })
+        .or_else(|_| {
+            println!("unknown2 special form: {:?}", form);
+            eval_def(form, args, env)
+        })
         .or_else(|_| eval_let(form, args, env))
-        .or_else(|_| eval_fn(form, args, env))
-        .or_else(|_| Err(format!("Unknown special form: {}", form)))
+        .or_else(|e| {
+            println!("unknown3 special form: {:?}", form);
+            eval_fn(form, args, env)
+        })
+        .or_else(|e| {
+            println!("unknown4 special form: {:?}", form);
+            Err(format!("Unknown special form: {}", form))
+        })
 }
 
 fn eval_quote(form: &str, args: &[EDN]) -> Result<Value, String> {
@@ -460,12 +485,14 @@ fn eval_if(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result
     if form != "if" {
         return Err("Not an if form".to_string());
     }
-
+    println!("eval_if1 args={:?}", args);
     if args.len() < 2 || args.len() > 3 {
         return Err("'if' requires 2 or 3 arguments".to_string());
     }
+    println!("eval_if2 args={:?}", args);
 
     eval(args[0].clone(), env).and_then(|condition| {
+        println!("condition={:?}", condition);
         if is_truthy(&condition) {
             eval(args[1].clone(), env)
         } else if args.len() == 3 {
@@ -572,8 +599,12 @@ fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<
             let args: Result<Vec<Value>, String> =
                 list[1..].iter().map(|arg| eval(arg.clone(), env)).collect();
             let args = args?;
+            println!("call {:?} args={:?}", f, args);
             f.call(args)
         }
-        _ => Err("First element is not a function".to_string()),
+        _ => {
+            println!("sonny list={:?}", list);
+            Err("First element is not a function".to_string())
+        }
     }
 }
