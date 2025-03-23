@@ -104,19 +104,22 @@ pub fn println_fn(args: Vec<Value>) -> Result<Value, String> {
     Ok(Value::EDN(EDN::Nil))
 }
 
-pub fn slurp(args: Vec<Value>) -> Result<Value, String> {
+pub fn slurp(path: &str) -> Result<String, String> {
+    let mut file = fs::File::open(path).map_err(|e| format!("Error opening file: {}", e))?;
+    let mut content = String::new();
+    file.read_to_string(&mut content)
+        .map_err(|e| format!("Error reading file: {}", e))?;
+    Ok(content)
+}
+
+pub fn slurp_wrapper(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err("slurp requires exactly one argument".to_string());
     }
 
     match &args[0] {
         Value::EDN(EDN::String(path)) => {
-            let mut file =
-                fs::File::open(path).map_err(|e| format!("Error opening file: {}", e))?;
-            let mut content = String::new();
-            file.read_to_string(&mut content)
-                .map_err(|e| format!("Error reading file: {}", e))?;
-            Ok(Value::EDN(EDN::String(content)))
+            slurp(path).map(|content| Value::EDN(EDN::String(content)))
         }
         _ => Err("slurp argument must be a string representing a file path".to_string()),
     }

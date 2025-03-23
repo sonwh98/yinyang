@@ -152,7 +152,7 @@ pub fn create_env() -> HashMap<String, Value> {
     register_native_fn(&mut env, "println", println_fn);
     register_native_fn(&mut env, "read-string", read_string_wrapper);
     register_native_fn(&mut env, "eval", eval_wrapper);
-    register_native_fn(&mut env, "slurp", slurp);
+    register_native_fn(&mut env, "slurp", slurp_wrapper);
     register_native_fn(&mut env, "=", equal);
     register_native_fn(&mut env, "<", less_than);
     register_native_fn(&mut env, "<=", less_than_equal);
