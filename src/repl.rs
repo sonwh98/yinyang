@@ -24,22 +24,6 @@ fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
     Ok(Value::EDN(v))
 }
 
-fn eval_wrapper(args: Vec<Value>) -> Result<Value, String> {
-    let env = Arc::new(RwLock::new(HashMap::new()));
-    let mut env_write = env.write().unwrap();
-    register_native_fn(&mut env_write, "+", add);
-
-    if args.len() != 1 {
-        return Err("eval requires exactly 1 argument".to_string());
-    }
-
-    let expr = match &args[0] {
-        Value::EDN(edn) => edn.clone(),
-        _ => return Err("eval argument must be an EDN value".to_string()),
-    };
-    eval(expr, &mut env_write)
-}
-
 /// Function to check if parentheses, brackets, and braces are balanced
 fn is_form_complete(input: &str) -> bool {
     let mut stack = Vec::new();
