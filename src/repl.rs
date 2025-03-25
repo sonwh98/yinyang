@@ -8,8 +8,6 @@ use std::fs;
 use std::io::{self, BufRead, Write};
 use std::sync::{Arc, RwLock};
 
-pub type Environment = Arc<RwLock<HashMap<String, Value>>>;
-
 fn read_string_wrapper(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err("read-string requires exactly 1 argument".to_string());

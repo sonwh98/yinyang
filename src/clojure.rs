@@ -9,7 +9,9 @@ use std::fmt;
 use std::fmt::Debug;
 use std::str::Chars;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+
+pub type Environment = Arc<RwLock<HashMap<String, Value>>>;
 
 pub struct NativeFn(pub Arc<dyn Fn(Vec<Value>) -> Result<Value, String> + Send + Sync + 'static>);
 
