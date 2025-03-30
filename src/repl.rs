@@ -85,33 +85,10 @@ fn read_forms(input: &str) -> Result<Vec<EDN>, ParseError> {
     Ok(forms)
 }
 
-pub fn repl(env: &Environment) {
-    // Check for script file argument first
-    let args: Vec<String> = env::args().collect();
+pub fn repl(environment: &Environment) {
+    let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 {
-        // Run a script file if provided
-        let filename = &args[1];
-        match fs::read_to_string(filename) {
-            Ok(content) => {
-                match read_forms(&content) {
-                    Ok(forms) => {
-                        // Execute each form sequentially
-                        for form in forms {
-                            let mut env_write = env.write().unwrap();
-                            match eval(form, &mut env_write) {
-                                Ok(val) => println!("{}", val),
-                                Err(e) => {
-                                    eprintln!("Evaluation error: {}", e);
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => eprintln!("Parse error: {:?}", e),
-                }
-            }
-            Err(e) => eprintln!("Error reading file '{}': {}", filename, e),
-        }
+        run_script_file(&args[1], environment);
         return;
     }
 
@@ -155,16 +132,11 @@ pub fn repl(env: &Environment) {
             continue;
         }
 
-        if !is_form_complete(trimmed_input) {
-            eprintln!("Error: Unmatched parentheses/brackets/braces in input.");
-            continue;
-        }
-
         let ast = read_string(trimmed_input);
         match ast {
             Ok(ast) => {
-                let mut env_write = env.write().unwrap();
-                match eval(ast, &mut env_write) {
+                // Pass the Environment reference directly to eval
+                match eval(ast, environment) {
                     Ok(val) => println!("{}", val),
                     Err(e) => eprintln!("Error: {}", e),
                 }
@@ -174,15 +146,35 @@ pub fn repl(env: &Environment) {
     }
 }
 
+fn run_script_file(filename: &str, environment: &Environment) {
+    match fs::read_to_string(filename) {
+        Ok(content) => {
+            match read_forms(&content) {
+                Ok(forms) => {
+                    for form in forms {
+                        match eval(form, environment) {
+                            Ok(val) => println!("{}", val),
+                            Err(e) => {
+                                eprintln!("Evaluation error: {}", e);
+                                return;
+                            }
+                        }
+                    }
+                }
+                Err(e) => eprintln!("Parse error: {:?}", e),
+            }
+        }
+        Err(e) => eprintln!("Error reading file '{}': {}", filename, e),
+    }
+}
+
 pub fn create_env() -> Environment {
     let env = Arc::new(RwLock::new(HashMap::new()));
+    let env_clone = env.clone();
 
-    // Create a new scope for the write lock
     {
         let mut env_write = env.write().unwrap();
-        let env_clone = env.clone();
 
-        // Create eval_wrapper closure that captures env_clone
         let eval_wrapper = move |args: Vec<Value>| -> Result<Value, String> {
             if args.len() != 1 {
                 return Err("eval requires exactly 1 argument".to_string());
@@ -193,8 +185,8 @@ pub fn create_env() -> Environment {
                 _ => return Err("eval argument must be an EDN value".to_string()),
             };
 
-            let mut env_write = env_clone.write().unwrap();
-            eval(expr, &mut env_write)
+            // Pass the thread-safe environment clone
+            eval(expr, &env_clone)
         };
 
         // Register core functions
@@ -211,7 +203,7 @@ pub fn create_env() -> Environment {
         register_native_fn(&mut env_write, "=", equal);
         register_native_fn(&mut env_write, "<", less_than);
         register_native_fn(&mut env_write, "<=", less_than_equal);
-        register_native_fn(&mut env_write, ">", greater_than_equal);
+        register_native_fn(&mut env_write, ">", greater_than);
         register_native_fn(&mut env_write, ">=", greater_than_equal);
     }
 

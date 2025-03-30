@@ -53,7 +53,10 @@ impl Callable {
                     ));
                 }
 
+                // Create new environment starting with closure values
                 let mut new_env = closure.clone();
+
+                // Bind parameters to arguments
                 for (param, arg) in params.iter().zip(args.iter()) {
                     match param {
                         Value::EDN(EDN::Symbol(name)) => {
@@ -63,7 +66,9 @@ impl Callable {
                     }
                 }
 
-                eval(body.clone(), &mut new_env)
+                // Create thread-safe environment and evaluate
+                let env = Arc::new(RwLock::new(new_env));
+                eval(body.clone(), &env)
             }
             Callable::Native(f) => f.0(args),
         }
@@ -423,7 +428,7 @@ fn is_special_form(form_name: &str) -> bool {
     special_forms.contains(&form_name)
 }
 
-pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String> {
+pub fn eval(ast: EDN, env: &Environment) -> Result<Value, String> {
     match ast {
         EDN::List(list) => {
             let l = *list;
@@ -432,7 +437,7 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String>
                 .ok_or("Empty list".to_string())
                 .and_then(|first| match first {
                     EDN::Symbol(s) => eval_special_form(&s, &l.rest().to_vec(), env)
-                        .or_else(|e| eval_function_call(&l.to_vec(), env)),
+                        .or_else(|_| eval_function_call(&l.to_vec(), env)),
                     _ => Err("Expected a function symbol".to_string()),
                 })
         }
@@ -441,7 +446,9 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String>
             if is_special_form(s) {
                 Ok(Value::EDN(EDN::Symbol(s.clone())))
             } else {
-                env.get(s)
+                let env_read = env.read().unwrap();
+                env_read
+                    .get(s)
                     .cloned()
                     .ok_or_else(|| format!("Undefined symbol: {}", s))
             }
@@ -450,31 +457,14 @@ pub fn eval(ast: EDN, env: &mut HashMap<String, Value>) -> Result<Value, String>
     }
 }
 
-fn eval_special_form(
-    form: &str,
-    args: &[EDN],
-    env: &mut HashMap<String, Value>,
-) -> Result<Value, String> {
+fn eval_special_form(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String> {
     eval_quote(form, args)
         .or_else(|_| eval_do(form, args, env))
-        .or_else(|e| {
-            let foo = eval_if(form, args, env);
-            println!("unknown1 special form: {:?} e={:?} foo={:?}", form, e, foo);
-            return foo;
-        })
-        .or_else(|_| {
-            println!("unknown2 special form: {:?}", form);
-            eval_def(form, args, env)
-        })
+        .or_else(|_| eval_if(form, args, env))
+        .or_else(|_| eval_def(form, args, env))
         .or_else(|_| eval_let(form, args, env))
-        .or_else(|e| {
-            println!("unknown3 special form: {:?}", form);
-            eval_fn(form, args, env)
-        })
-        .or_else(|e| {
-            println!("unknown4 special form: {:?}", form);
-            Err(format!("Unknown special form: {}", form))
-        })
+        .or_else(|_| eval_fn(form, args, env))
+        .or_else(|_| Err(format!("Unknown special form: {}", form)))
 }
 
 fn eval_quote(form: &str, args: &[EDN]) -> Result<Value, String> {
@@ -489,7 +479,7 @@ fn eval_quote(form: &str, args: &[EDN]) -> Result<Value, String> {
     }
 }
 
-fn eval_do(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+fn eval_do(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String> {
     if form != "do" {
         return Err("Not a do form".to_string());
     }
@@ -498,7 +488,7 @@ fn eval_do(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result
         .try_fold(Value::EDN(EDN::Nil), |_, expr| eval(expr.clone(), env))
 }
 
-fn eval_if(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+fn eval_if(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String> {
     if form != "if" {
         return Err("Not an if form".to_string());
     }
@@ -520,7 +510,7 @@ fn eval_if(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result
     })
 }
 
-fn eval_def(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+fn eval_def(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String> {
     if form != "def" {
         return Err("Not a def form".to_string());
     }
@@ -535,7 +525,8 @@ fn eval_def(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Resul
     }?;
 
     let value = eval(args[1].clone(), env)?;
-    env.insert(symbol.clone(), value.clone());
+    let mut env_write = env.write().unwrap();
+    env_write.insert(symbol.clone(), value.clone());
 
     Ok(Value::Var {
         ns: "user".to_string(),
@@ -544,7 +535,7 @@ fn eval_def(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Resul
     })
 }
 
-fn eval_let(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+fn eval_let(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String> {
     if form != "let" {
         return Err("Not a let form".to_string());
     }
@@ -562,7 +553,7 @@ fn eval_let(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Resul
         return Err("Binding vector requires an even number of forms".to_string());
     }
 
-    let mut new_env = env.clone();
+    let mut new_env = env.read().unwrap().clone();
 
     // Process bindings in pairs
     for chunk in bindings.chunks(2) {
@@ -571,15 +562,15 @@ fn eval_let(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Resul
             _ => return Err("Binding target must be a symbol".to_string()),
         };
 
-        let val = eval(chunk[1].clone(), &mut new_env)?;
+        let val = eval(chunk[1].clone(), &Environment::new(RwLock::new(new_env.clone())))?;
         new_env.insert(sym, val);
     }
 
     // Evaluate body in new environment
-    eval(args[1].clone(), &mut new_env)
+    eval(args[1].clone(), &Environment::new(RwLock::new(new_env)))
 }
 
-fn eval_fn(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+fn eval_fn(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String> {
     if form != "fn" {
         return Err("Not a fn form".to_string());
     }
@@ -602,11 +593,11 @@ fn eval_fn(form: &str, args: &[EDN], env: &mut HashMap<String, Value>) -> Result
     Ok(Value::Function(Callable::Lambda {
         params,
         body: args[1].clone(),
-        closure: env.clone(),
+        closure: env.read().unwrap().clone(),
     }))
 }
 
-fn eval_function_call(list: &[EDN], env: &mut HashMap<String, Value>) -> Result<Value, String> {
+fn eval_function_call(list: &[EDN], env: &Environment) -> Result<Value, String> {
     // Evaluate first element to get the function
     let func = eval(list[0].clone(), env)?;
 
