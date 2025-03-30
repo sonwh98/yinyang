@@ -44,8 +44,8 @@ impl<T: Clone> List<T> {
         List::Cons(item, Arc::new(list))
     }
 
-    // Instance method to add an element to the front
-    pub fn cons_front(&self, element: T) -> Self {
+    // Instance method to add an element to thepf front
+    pub fn prepend(&self, element: T) -> Self {
         List::Cons(element, Arc::new(self.clone()))
     }
 

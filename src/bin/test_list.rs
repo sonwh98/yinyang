@@ -10,7 +10,7 @@ fn main() {
     assert_eq!(single_element_list.len(), 1);
     assert_eq!(single_element_list.head(), Some(&42));
 
-    let extended_list = single_element_list.cons(10).cons(20);
+    let extended_list = single_element_list.prepend(10).prepend(20);
     assert_eq!(extended_list.len(), 3);
     assert_eq!(extended_list.head(), Some(&20));
 
