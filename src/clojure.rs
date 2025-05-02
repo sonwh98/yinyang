@@ -4,6 +4,7 @@ use bigdecimal::BigDecimal;
 use log::debug;
 use num_bigint::BigInt;
 use regex::Regex;
+use std::backtrace::Backtrace;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Debug;
@@ -463,7 +464,10 @@ fn eval_special_form(form: &str, args: &[EDN], env: &Environment) -> Result<Valu
         .or_else(|_| eval_def(form, args, env))
         .or_else(|_| eval_let(form, args, env))
         .or_else(|_| eval_fn(form, args, env))
-        .or_else(|_| Err(format!("Unknown special form: {}", form)))
+        .or_else(|e| {
+            println!("boom form={:?} args={:?} ", form, args);
+            Err(format!("Unknown special form: {}", form))
+        })
 }
 
 fn eval_quote(form: &str, args: &[EDN]) -> Result<Value, String> {
@@ -479,10 +483,12 @@ fn eval_quote(form: &str, args: &[EDN]) -> Result<Value, String> {
 }
 
 fn eval_do(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String> {
+    println!("do-1 form={:?}", form);
     if form != "do" {
+        println!("do-1.1 form={:?}", form);
         return Err("Not a do form".to_string());
     }
-
+    println!("do-2");
     args.iter()
         .try_fold(Value::EDN(EDN::Nil), |_, expr| eval(expr.clone(), env))
 }
@@ -522,8 +528,13 @@ fn eval_def(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String
     }?;
 
     let value = eval(args[1].clone(), env)?;
-    let mut env_write = env.write().unwrap();
-    env_write.insert(symbol.clone(), value.clone());
+
+    // Update placeholder with actual value
+    {
+        println!("def value={:?}", value);
+        let mut env_write = env.write().unwrap();
+        env_write.insert(symbol.clone(), value.clone());
+    }
 
     Ok(Value::Var {
         ns: "user".to_string(),
@@ -599,8 +610,11 @@ fn eval_fn(form: &str, args: &[EDN], env: &Environment) -> Result<Value, String>
 
 fn eval_function_call(list: &[EDN], env: &Environment) -> Result<Value, String> {
     // Evaluate first element to get the function
-    let func = eval(list[0].clone(), env)?;
-
+    let l0 = list[0].clone();
+    let l1 = list[0].clone();
+    let func = eval(l0, env)?;
+    println!("l1={:?} func={:?} list={:?}", l1, func, list);
+    println!("env={:?}", env);
     match func {
         Value::Function(f) => {
             // Evaluate all arguments
@@ -610,6 +624,12 @@ fn eval_function_call(list: &[EDN], env: &Environment) -> Result<Value, String> 
 
             f.call(args)
         }
-        _ => Err("First element is not a function".to_string()),
+        _ => {
+            //println!("call {:?} env={:?}", list, env);
+            // let backtrace = Backtrace::force_capture();
+            // println!("Stack trace:\n{}", backtrace);
+
+            Err("First element is not a function".to_string())
+        }
     }
 }
