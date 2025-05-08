@@ -12,7 +12,7 @@ Clojure implemented in Clojure. This is a science experiment with the ultimate g
 
 ## Rust Usage
 
-	$ cargo run --bin repl
+	$ cargo run --bin clj
 	
 ## Examples
 ```clojure
