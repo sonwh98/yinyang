@@ -365,4 +365,33 @@ mod tests {
         assert_eq!(v1.get(0), Some(&1));
         assert_eq!(v1.get(1), Some(&2));
     }
+
+    #[test]
+    fn depth_grow_boundary_33() {
+	// crosses one full tail
+	let mut v = PersistentVector::new();
+	for i in 0..33 { v = v.conj(i); }
+	for i in 0..33 { assert_eq!(v.get(i), Some(&i)); }
+    }
+
+    #[test]
+    fn depth_grow_boundary_1025() {
+	// forces second depth level
+	let mut v = PersistentVector::new();
+	for i in 0..1025 { v = v.conj(i); }
+	for i in [0, 31, 32, 33, 1024] {
+            assert_eq!(v.get(i), Some(&i));
+	}
+    }
+
+    #[test]
+    fn pop_shrinks_depth() {
+	let mut v = PersistentVector::new();
+	for i in 0..1025 { v = v.conj(i); }
+	for _ in 0..(1025-32) { v = v.pop().unwrap(); } // pop until only tail remains
+	assert_eq!(v.len(), 32);
+	// should be back to a shallow tree (shift == BITS or tail-only)
+	assert_eq!(v.get(31), Some(&31));
+    }
+
 }
