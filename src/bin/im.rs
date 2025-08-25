@@ -78,7 +78,7 @@ impl<T: Clone> PersistentVector<T> {
                 if level == BITS {
                     // We're at the level just above leaves
                     let mut new_children = children.clone();
-                    new_children.push(Rc::new(Node::Leaf((*tail).clone())));
+                    new_children.push(Rc::new(Node::Leaf((**tail).clone())));
                     Rc::new(Node::Internal(new_children))
                 } else {
                     let mut new_children = children.clone();
