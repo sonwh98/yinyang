@@ -25,6 +25,12 @@ Clojure implemented in Clojure. This is a science experiment with the ultimate g
 
 ```
 
+## Test
+```
+cargo test --bin im
+
+```
+
 ...
 
 ### Bugs
